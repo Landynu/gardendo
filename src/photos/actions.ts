@@ -2,10 +2,12 @@ import { type GetUploadUrl } from "wasp/server/operations"
 import { type Photo } from "wasp/entities"
 import { HttpError } from "wasp/server"
 import { requirePropertyMember } from "../lib/auth"
+import { getPresignedUploadUrl } from "../lib/s3"
 import crypto from "crypto"
 
 type GetUploadUrlArgs = {
   propertyId: string
+  contentType?: string
   caption?: string
   takenAt?: string
   zoneId?: string
@@ -14,6 +16,7 @@ type GetUploadUrlArgs = {
   animalId?: string
   harvestLogId?: string
   inventoryId?: string
+  plantId?: string
 }
 
 type GetUploadUrlResult = {
@@ -41,11 +44,14 @@ export const getUploadUrl: GetUploadUrl<
       animalId: args.animalId,
       harvestLogId: args.harvestLogId,
       inventoryId: args.inventoryId,
+      plantId: args.plantId,
     },
   })
 
-  // TODO: Generate a presigned S3 upload URL once S3 is configured
-  const uploadUrl = `/api/placeholder-upload/${key}`
+  const uploadUrl = await getPresignedUploadUrl(
+    key,
+    args.contentType || "image/*"
+  )
 
   return { photo, uploadUrl }
 }

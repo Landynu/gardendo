@@ -1,5 +1,11 @@
-import { useQuery, getPlantById } from "wasp/client/operations"
+import {
+  useQuery,
+  getPlantById,
+  getProperties,
+  getPlantPhotos,
+} from "wasp/client/operations"
 import { Link, useParams } from "react-router"
+import { useState } from "react"
 import {
   ArrowLeft,
   Sun,
@@ -11,7 +17,10 @@ import {
   Grid3X3,
   Sprout,
   Users,
+  Camera,
+  ImageIcon,
 } from "lucide-react"
+import { PhotoUpload } from "../components/PhotoUpload"
 
 const categoryLabels: Record<string, string> = {
   VEGETABLE: "Vegetable",
@@ -42,11 +51,25 @@ const seasonLabels: Record<string, string> = {
   WARM: "Warm Season",
 }
 
+const dataSourceLabels: Record<string, string> = {
+  SEED: "Seed Data",
+  OPENFARM: "OpenFarm",
+  USER: "User Added",
+}
+
 export function PlantDetailPage() {
   const { plantId } = useParams()
   const { data: plant, isLoading, error } = useQuery(getPlantById, {
     id: plantId!,
   })
+  const { data: properties } = useQuery(getProperties)
+  const { data: photos, refetch: refetchPhotos } = useQuery(
+    getPlantPhotos,
+    plantId ? { plantId } : undefined
+  )
+  const [photoTab, setPhotoTab] = useState<"yours" | "stock">("yours")
+
+  const property = properties?.[0]
 
   if (isLoading) {
     return (
@@ -127,8 +150,115 @@ export function PlantDetailPage() {
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                 {plant.lifecycle.toLowerCase()}
               </span>
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-500">
+                {dataSourceLabels[plant.dataSource] ?? plant.dataSource}
+              </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Photos Section */}
+      <div className="mb-6">
+        <div className="card p-5">
+          <div className="mb-4 flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-neutral-900">Photos</h2>
+            <div className="flex rounded-lg bg-neutral-100 p-0.5">
+              <button
+                onClick={() => setPhotoTab("yours")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  photoTab === "yours"
+                    ? "bg-white text-neutral-900 shadow-xs"
+                    : "text-neutral-500 hover:text-neutral-700"
+                }`}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Your Photos
+                {photos && photos.length > 0 && (
+                  <span className="ml-1 rounded-full bg-primary-100 px-1.5 text-xs text-primary-700">
+                    {photos.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setPhotoTab("stock")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  photoTab === "stock"
+                    ? "bg-white text-neutral-900 shadow-xs"
+                    : "text-neutral-500 hover:text-neutral-700"
+                }`}
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                Stock Image
+              </button>
+            </div>
+          </div>
+
+          {photoTab === "yours" ? (
+            <div>
+              {/* Photo Gallery */}
+              {photos && photos.length > 0 && (
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {photos.map((photo: any) => (
+                    <div
+                      key={photo.id}
+                      className="group relative aspect-square overflow-hidden rounded-lg bg-neutral-100"
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || plant.name}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      {photo.caption && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                          <p className="text-xs text-white">{photo.caption}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload */}
+              {property && (
+                <PhotoUpload
+                  propertyId={property.id}
+                  plantId={plantId}
+                  onUploaded={() => refetchPhotos()}
+                />
+              )}
+
+              {!property && (
+                <p className="text-sm text-neutral-400">
+                  Create a property in Settings to upload photos.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              {plant.imageUrl ? (
+                <div className="flex justify-center">
+                  <img
+                    src={plant.imageUrl}
+                    alt={plant.name}
+                    className="max-h-80 rounded-lg object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <ImageIcon className="mb-2 h-10 w-10 text-neutral-300" />
+                  <p className="text-sm text-neutral-400">
+                    No stock image available
+                  </p>
+                  {plant.dataSource !== "OPENFARM" && (
+                    <p className="mt-1 text-xs text-neutral-400">
+                      Import from OpenFarm to get a reference image
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -345,20 +475,16 @@ export function PlantDetailPage() {
             Traits
           </h2>
           <div className="flex flex-wrap gap-2">
-            {plant.isEdible && <TraitBadge label="Edible" active />}
-            {plant.isMedicinal && <TraitBadge label="Medicinal" active />}
-            {plant.isNitrogenFixer && (
-              <TraitBadge label="Nitrogen Fixer" active />
-            )}
+            {plant.isEdible && <TraitBadge label="Edible" />}
+            {plant.isMedicinal && <TraitBadge label="Medicinal" />}
+            {plant.isNitrogenFixer && <TraitBadge label="Nitrogen Fixer" />}
             {plant.isDynamicAccumulator && (
-              <TraitBadge label="Dynamic Accumulator" active />
+              <TraitBadge label="Dynamic Accumulator" />
             )}
             {plant.attractsPollinators && (
-              <TraitBadge label="Attracts Pollinators" active />
+              <TraitBadge label="Attracts Pollinators" />
             )}
-            {plant.deerResistant && (
-              <TraitBadge label="Deer Resistant" active />
-            )}
+            {plant.deerResistant && <TraitBadge label="Deer Resistant" />}
             {plant.permLayer && (
               <span className="rounded-full bg-earth-100 px-2.5 py-0.5 text-xs font-medium text-earth-700">
                 {plant.permLayer.replace("_", " ").toLowerCase()} layer
@@ -367,6 +493,20 @@ export function PlantDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Notes */}
+      {plant.notes && (
+        <div className="mt-6">
+          <div className="card p-5">
+            <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+              Notes
+            </h2>
+            <p className="whitespace-pre-wrap text-sm text-neutral-600">
+              {plant.notes}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -416,8 +556,7 @@ function ScheduleRow({
   )
 }
 
-function TraitBadge({ label, active }: { label: string; active: boolean }) {
-  if (!active) return null
+function TraitBadge({ label }: { label: string }) {
   return (
     <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700">
       {label}

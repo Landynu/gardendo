@@ -205,6 +205,7 @@ model Plant {
   companionsB    CompanionPlant[] @relation("CompanionB")
   seedInventory  SeedInventory[]
   calendarEvents CalendarEvent[]
+  photos         Photo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -595,6 +596,8 @@ model Photo {
   harvestLogId String?
   inventory    InventoryItem? @relation(fields: [inventoryId], references: [id])
   inventoryId  String?
+  plant        Plant?         @relation(fields: [plantId], references: [id])
+  plantId      String?
 
   createdAt DateTime @default(now())
 }

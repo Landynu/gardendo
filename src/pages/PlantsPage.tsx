@@ -1,7 +1,9 @@
 import { useQuery, getPlants } from "wasp/client/operations"
 import { Link } from "react-router"
-import { Search, Plus, Leaf, Sprout } from "lucide-react"
+import { Search, Plus, Leaf, Sprout, Globe } from "lucide-react"
 import { useState } from "react"
+import { PlantFormModal } from "../components/PlantFormModal"
+import { OpenFarmBrowser } from "../components/OpenFarmBrowser"
 
 const CATEGORIES = [
   "ALL",
@@ -36,6 +38,8 @@ const lifecycleColors: Record<string, string> = {
 export function PlantsPage() {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState<string>("ALL")
+  const [showForm, setShowForm] = useState(false)
+  const [showBrowser, setShowBrowser] = useState(false)
 
   const queryArgs: { search?: string; category?: string } = {}
   if (search.trim()) queryArgs.search = search.trim()
@@ -47,10 +51,16 @@ export function PlantsPage() {
     <div className="page-container">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="page-title">Plants</h1>
-        <button className="btn-primary">
-          <Plus className="h-4 w-4" />
-          Add Plant
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setShowBrowser(true)}>
+            <Globe className="h-4 w-4" />
+            Browse OpenFarm
+          </button>
+          <button className="btn-primary" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" />
+            Add Plant
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -146,6 +156,8 @@ export function PlantsPage() {
           ))}
         </div>
       )}
+      <PlantFormModal open={showForm} onClose={() => setShowForm(false)} />
+      <OpenFarmBrowser open={showBrowser} onClose={() => setShowBrowser(false)} />
     </div>
   )
 }

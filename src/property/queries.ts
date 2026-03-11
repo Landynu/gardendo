@@ -19,7 +19,19 @@ export const getProperties: GetProperties<void, Property[]> = async (
       },
     },
     include: {
-      members: true,
+      members: {
+        include: {
+          user: {
+            include: {
+              auth: {
+                include: {
+                  identities: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { name: "asc" },
   })

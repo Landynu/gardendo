@@ -136,17 +136,23 @@ export function SettingsPage() {
             {(property as any).members &&
             (property as any).members.length > 0 ? (
               <div className="space-y-2">
-                {(property as any).members.map((member: any) => (
+                {(property as any).members.map((member: any) => {
+                  const email = member.user?.auth?.identities?.[0]?.providerUserId
+                  const displayName = email ?? member.userId.slice(0, 8)
+                  const initials = email
+                    ? email.slice(0, 2).toUpperCase()
+                    : member.userId.slice(0, 2).toUpperCase()
+                  return (
                   <div
                     key={member.id}
                     className="flex items-center justify-between rounded-lg border border-neutral-100 p-3"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-                        {member.userId.slice(0, 2).toUpperCase()}
+                        {initials}
                       </div>
                       <span className="text-sm text-neutral-700">
-                        {member.user?.auth?.identities?.[0]?.providerUserId ?? member.userId.slice(0, 8)}
+                        {displayName}
                       </span>
                     </div>
                     <span
@@ -159,7 +165,8 @@ export function SettingsPage() {
                       {member.role.toLowerCase()}
                     </span>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-sm text-neutral-400">No members found</p>

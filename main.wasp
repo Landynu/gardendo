@@ -218,16 +218,33 @@ action updateTask {
   entities: [Task]
 }
 
-// ─── PHOTO ACTIONS ──────────────────────────
+// ─── PHOTO QUERIES & ACTIONS ────────────────
 
 query getPhotoUrl {
   fn: import { getPhotoUrl } from "@src/photos/queries",
   entities: [Photo]
 }
 
+query getPlantPhotos {
+  fn: import { getPlantPhotos } from "@src/photos/queries",
+  entities: [Photo]
+}
+
 action getUploadUrl {
   fn: import { getUploadUrl } from "@src/photos/actions",
   entities: [Photo, PropertyMember]
+}
+
+// ─── OPENFARM API ──────────────────────────
+
+action searchOpenFarm {
+  fn: import { searchOpenFarm } from "@src/plants/actions",
+  entities: [Plant]
+}
+
+action importFromOpenFarm {
+  fn: import { importFromOpenFarm } from "@src/plants/actions",
+  entities: [Plant]
 }
 
 // ─── JOBS ───────────────────────────────────
