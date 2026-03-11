@@ -197,15 +197,46 @@ model Plant {
   externalSlug String?
   lastSyncedAt DateTime?
 
+  // Soil & environment (from Trefle)
+  phMin            Float?
+  phMax            Float?
+  soilNutriments   Int?     // 0-10 scale
+  soilHumidity     Int?     // 0-10 scale
+  soilTexture      Int?     // 0-10 scale
+  soilSalinity     Int?     // 0-10 scale
+  precipitationMin Int?     // mm/year
+  precipitationMax Int?     // mm/year
+
+  // Growth timing (comma-separated month abbreviations: "mar,apr,may")
+  growthMonths String?
+  bloomMonths  String?
+  fruitMonths  String?
+
+  // Growth characteristics
+  growthRate String? // "slow", "moderate", "rapid"
+
+  // Appearance
+  flowerColor    String?  // comma-separated: "yellow,white"
+  foliageColor   String?  // comma-separated: "green"
+  foliageTexture String?  // "fine", "medium", "coarse"
+  fruitColor     String?  // comma-separated: "red,orange"
+  isEvergreen    Boolean  @default(false)
+
+  // Edible details
+  edibleParts String? // comma-separated: "fruit,leaves,roots"
+
   notes    String?
   imageUrl String?
+
+  displayPhoto   Photo?   @relation("PlantDisplayPhoto", fields: [displayPhotoId], references: [id])
+  displayPhotoId String?  @unique
 
   plantings      Planting[]
   companionsA    CompanionPlant[] @relation("CompanionA")
   companionsB    CompanionPlant[] @relation("CompanionB")
   seedInventory  SeedInventory[]
   calendarEvents CalendarEvent[]
-  photos         Photo[]
+  photos         Photo[]          @relation("PlantPhotos")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -596,8 +627,9 @@ model Photo {
   harvestLogId String?
   inventory    InventoryItem? @relation(fields: [inventoryId], references: [id])
   inventoryId  String?
-  plant        Plant?         @relation(fields: [plantId], references: [id])
-  plantId      String?
+  plant           Plant?   @relation("PlantPhotos", fields: [plantId], references: [id])
+  plantId         String?
+  displayForPlant Plant?   @relation("PlantDisplayPhoto")
 
   createdAt DateTime @default(now())
 }

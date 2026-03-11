@@ -3,6 +3,8 @@ import {
   type UpdatePlant,
   type SearchPlants,
   type ImportPlant,
+  type EnrichPlants,
+  type SetPlantDisplayPhoto,
   type AddCompanion,
   type RemoveCompanion,
   type UpdateCompanion,
@@ -151,6 +153,74 @@ export const updatePlant: UpdatePlant<UpdatePlantArgs, Plant> = async (
 const TREFLE_API = "https://trefle.io/api/v1";
 const TREFLE_TOKEN = process.env.TREFLE_TOKEN;
 
+// Convert minimum temperature (Celsius) to USDA hardiness zone
+const tempToZone = (degC?: number): string | undefined => {
+  if (degC == null) return undefined;
+  if (degC <= -51.1) return "1A";
+  if (degC <= -48.3) return "1B";
+  if (degC <= -45.6) return "2A";
+  if (degC <= -42.8) return "2B";
+  if (degC <= -40.0) return "3A";
+  if (degC <= -37.2) return "3B";
+  if (degC <= -34.4) return "4A";
+  if (degC <= -31.7) return "4B";
+  if (degC <= -28.9) return "5A";
+  if (degC <= -26.1) return "5B";
+  if (degC <= -23.3) return "6A";
+  if (degC <= -20.6) return "6B";
+  if (degC <= -17.8) return "7A";
+  if (degC <= -15.0) return "7B";
+  if (degC <= -12.2) return "8A";
+  if (degC <= -9.4) return "8B";
+  if (degC <= -6.7) return "9A";
+  if (degC <= -3.9) return "9B";
+  if (degC <= -1.1) return "10A";
+  if (degC <= 1.7) return "10B";
+  if (degC <= 4.4) return "11A";
+  if (degC <= 7.2) return "11B";
+  if (degC <= 10.0) return "12A";
+  return "12B";
+};
+
+// cm to inches
+const cmToIn = (cm?: number) =>
+  cm ? Math.round((cm / 2.54) * 10) / 10 : undefined;
+
+/** Build Trefle enrichment data from a detail API response */
+function mapTrefleDetail(data: any) {
+  const growth = data.growth ?? {};
+  const specs = data.specifications ?? {};
+
+  return {
+    // Soil & environment
+    phMin: growth.ph_minimum ?? undefined,
+    phMax: growth.ph_maximum ?? undefined,
+    soilNutriments: growth.soil_nutriments ?? undefined,
+    soilHumidity: growth.soil_humidity ?? undefined,
+    soilTexture: growth.soil_texture ?? undefined,
+    soilSalinity: growth.soil_salinity ?? undefined,
+    precipitationMin: growth.minimum_precipitation?.mm ?? undefined,
+    precipitationMax: growth.maximum_precipitation?.mm ?? undefined,
+    // Growth timing
+    growthMonths: growth.growth_months?.join(",") || undefined,
+    bloomMonths: growth.bloom_months?.join(",") || undefined,
+    fruitMonths: growth.fruit_months?.join(",") || undefined,
+    // Growth characteristics
+    growthRate: specs.growth_rate || undefined,
+    // Appearance
+    flowerColor: data.flower?.color?.join(",") || undefined,
+    foliageColor: data.foliage?.color?.join(",") || undefined,
+    foliageTexture: data.foliage?.texture || undefined,
+    fruitColor: data.fruit_or_seed?.color?.join(",") || undefined,
+    isEvergreen: data.foliage?.leaf_retention === true,
+    // Edible details
+    edibleParts: data.edible_part?.join(",") || undefined,
+    // Zones
+    hardinessZoneMin: tempToZone(growth.minimum_temperature?.deg_c),
+    hardinessZoneMax: tempToZone(growth.maximum_temperature?.deg_c),
+  };
+}
+
 type PlantSearchResult = {
   slug: string;
   name: string;
@@ -254,40 +324,7 @@ export const importPlant: ImportPlant<
     category = "VEGETABLE";
   }
 
-  // Convert minimum temperature (Celsius) to USDA hardiness zone
-  const tempToZone = (degC?: number): string | undefined => {
-    if (degC == null) return undefined;
-    if (degC <= -51.1) return "1A";
-    if (degC <= -48.3) return "1B";
-    if (degC <= -45.6) return "2A";
-    if (degC <= -42.8) return "2B";
-    if (degC <= -40.0) return "3A";
-    if (degC <= -37.2) return "3B";
-    if (degC <= -34.4) return "4A";
-    if (degC <= -31.7) return "4B";
-    if (degC <= -28.9) return "5A";
-    if (degC <= -26.1) return "5B";
-    if (degC <= -23.3) return "6A";
-    if (degC <= -20.6) return "6B";
-    if (degC <= -17.8) return "7A";
-    if (degC <= -15.0) return "7B";
-    if (degC <= -12.2) return "8A";
-    if (degC <= -9.4) return "8B";
-    if (degC <= -6.7) return "9A";
-    if (degC <= -3.9) return "9B";
-    if (degC <= -1.1) return "10A";
-    if (degC <= 1.7) return "10B";
-    if (degC <= 4.4) return "11A";
-    if (degC <= 7.2) return "11B";
-    if (degC <= 10.0) return "12A";
-    return "12B";
-  };
-
-  const hardinessZoneMin = tempToZone(growth.minimum_temperature?.deg_c);
-
-  // cm to inches
-  const cmToIn = (cm?: number) =>
-    cm ? Math.round((cm / 2.54) * 10) / 10 : undefined;
+  const enrichment = mapTrefleDetail(data);
 
   return context.entities.Plant.create({
     data: {
@@ -300,13 +337,129 @@ export const importPlant: ImportPlant<
       rowSpacingInches: cmToIn(growth.row_spacing?.cm),
       plantHeightInches: cmToIn(specs.average_height?.cm),
       daysToMaturity: growth.days_to_harvest || undefined,
-      hardinessZoneMin,
+      isEdible: data.edible === true,
       imageUrl: data.image_url || undefined,
       notes: growth.sowing ? growth.sowing.slice(0, 500) : undefined,
       externalSlug: args.slug,
       dataSource: "TREFLE" as any,
       lastSyncedAt: new Date(),
+      ...enrichment,
     },
+  });
+};
+
+// ─── ENRICH EXISTING PLANTS ─────────────────
+
+type EnrichResult = { updated: number; skipped: number };
+
+export const enrichPlants: EnrichPlants<void, EnrichResult> = async (
+  _args,
+  context,
+) => {
+  if (!context.user) throw new HttpError(401);
+  if (!TREFLE_TOKEN) throw new HttpError(500, "Trefle API token not configured");
+
+  // Find plants that could benefit from enrichment:
+  // no image OR no enrichment data yet, must have a scientificName, not user-edited
+  const plants = await context.entities.Plant.findMany({
+    where: {
+      scientificName: { not: null },
+      isUserEdited: false,
+      OR: [{ imageUrl: null }, { phMin: null }],
+    },
+  });
+
+  let updated = 0;
+  let skipped = 0;
+
+  // Group by scientificName to avoid redundant API calls
+  // (e.g. "Tomato Early Girl" and "Tomato Roma" share "Solanum lycopersicum")
+  const byScientific = new Map<string, typeof plants>();
+  for (const plant of plants) {
+    const key = plant.scientificName!;
+    if (!byScientific.has(key)) byScientific.set(key, []);
+    byScientific.get(key)!.push(plant);
+  }
+
+  for (const [scientificName, group] of byScientific) {
+    try {
+      // Search Trefle by scientific name
+      const searchRes = await fetch(
+        `${TREFLE_API}/species/search?q=${encodeURIComponent(scientificName)}&token=${TREFLE_TOKEN}`,
+      );
+      if (!searchRes.ok) { skipped += group.length; continue; }
+
+      const contentType = searchRes.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) { skipped += group.length; continue; }
+
+      const searchJson = await searchRes.json();
+      const match = searchJson.data?.[0];
+      if (!match?.slug) { skipped += group.length; continue; }
+
+      // Fetch full detail
+      const detailRes = await fetch(
+        `${TREFLE_API}/species/${match.slug}?token=${TREFLE_TOKEN}`,
+      );
+      if (!detailRes.ok) { skipped += group.length; continue; }
+
+      const detailContentType = detailRes.headers.get("content-type") ?? "";
+      if (!detailContentType.includes("application/json")) { skipped += group.length; continue; }
+
+      const detailJson = await detailRes.json();
+      const data = detailJson.data ?? {};
+      const enrichment = mapTrefleDetail(data);
+
+      // Build update — only set fields that have data and aren't already set
+      const updateData: any = {
+        ...enrichment,
+        externalSlug: match.slug,
+        lastSyncedAt: new Date(),
+      };
+      if (data.image_url) updateData.imageUrl = data.image_url;
+      if (data.edible === true) updateData.isEdible = true;
+
+      for (const plant of group) {
+        await context.entities.Plant.update({
+          where: { id: plant.id },
+          data: updateData,
+        });
+        updated++;
+      }
+    } catch {
+      skipped += group.length;
+    }
+
+    // Rate limit: 60 req/min, we make 2 calls per species → wait 2s
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  return { updated, skipped };
+};
+
+// ─── SET DISPLAY PHOTO ─────────────────────
+
+type SetPlantDisplayPhotoArgs = {
+  plantId: string;
+  photoId: string | null; // null to clear
+};
+
+export const setPlantDisplayPhoto: SetPlantDisplayPhoto<
+  SetPlantDisplayPhotoArgs,
+  Plant
+> = async (args, context) => {
+  if (!context.user) throw new HttpError(401);
+
+  if (args.photoId) {
+    // Verify photo exists and belongs to this plant
+    const photo = await context.entities.Photo.findFirst({
+      where: { id: args.photoId, plantId: args.plantId },
+    });
+    if (!photo) throw new HttpError(404, "Photo not found for this plant");
+  }
+
+  return context.entities.Plant.update({
+    where: { id: args.plantId },
+    data: { displayPhotoId: args.photoId },
   });
 };
 

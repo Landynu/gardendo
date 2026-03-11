@@ -1,4 +1,4 @@
-import { useQuery, getProperties, createProperty } from "wasp/client/operations"
+import { useQuery, getProperties, createProperty, enrichPlants } from "wasp/client/operations"
 import {
   Leaf,
   Settings,
@@ -7,6 +7,8 @@ import {
   Clock,
   Users,
   Plus,
+  Sparkles,
+  Loader2,
 } from "lucide-react"
 import { useState, lazy, Suspense } from "react"
 
@@ -19,6 +21,21 @@ const LocationPicker = lazy(() =>
 export function SettingsPage() {
   const { data: properties, isLoading } = useQuery(getProperties)
   const [showForm, setShowForm] = useState(false)
+  const [enriching, setEnriching] = useState(false)
+  const [enrichResult, setEnrichResult] = useState<{ updated: number; skipped: number } | null>(null)
+
+  async function handleEnrich() {
+    setEnriching(true)
+    setEnrichResult(null)
+    try {
+      const result = await enrichPlants()
+      setEnrichResult(result)
+    } catch {
+      setEnrichResult({ updated: 0, skipped: -1 })
+    } finally {
+      setEnriching(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -171,6 +188,47 @@ export function SettingsPage() {
             ) : (
               <p className="text-sm text-neutral-400">No members found</p>
             )}
+          </div>
+
+          <div className="card p-5">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+              <Sparkles className="h-5 w-5 text-accent-600" />
+              Plant Data Enrichment
+            </h2>
+            <p className="mb-4 text-sm text-neutral-500">
+              Fetch images, soil data, growth timing, and appearance info from
+              Trefle for all plants that have a scientific name.
+            </p>
+            {enrichResult && (
+              <div
+                className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+                  enrichResult.skipped === -1
+                    ? "bg-red-50 text-red-700"
+                    : "bg-green-50 text-green-700"
+                }`}
+              >
+                {enrichResult.skipped === -1
+                  ? "Enrichment failed. Check your Trefle API token."
+                  : `Enriched ${enrichResult.updated} plant${enrichResult.updated !== 1 ? "s" : ""}${enrichResult.skipped > 0 ? `, ${enrichResult.skipped} skipped` : ""}.`}
+              </div>
+            )}
+            <button
+              onClick={handleEnrich}
+              disabled={enriching}
+              className="btn-primary"
+            >
+              {enriching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enriching...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Enrich from Trefle
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

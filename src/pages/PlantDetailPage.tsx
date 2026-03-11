@@ -7,6 +7,7 @@ import {
   addCompanion,
   updateCompanion,
   removeCompanion,
+  setPlantDisplayPhoto,
 } from "wasp/client/operations";
 import { Link, useParams } from "react-router";
 import { useState } from "react";
@@ -28,6 +29,11 @@ import {
   Save,
   Trash2,
   Mountain,
+  CloudRain,
+  Flower2,
+  TreePine,
+  Palette,
+  Star,
 } from "lucide-react";
 import { PhotoUpload } from "../components/PhotoUpload";
 
@@ -393,23 +399,43 @@ export function PlantDetailPage() {
               {/* Photo Gallery */}
               {photos && photos.length > 0 && (
                 <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {photos.map((photo: PlantPhoto) => (
-                    <div
-                      key={photo.id}
-                      className="group relative aspect-square overflow-hidden rounded-lg bg-neutral-100"
-                    >
-                      <img
-                        src={photo.url}
-                        alt={photo.caption || plant.name}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      {photo.caption && (
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                          <p className="text-xs text-white">{photo.caption}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {photos.map((photo: PlantPhoto) => {
+                    const isFavourite = plant.displayPhotoId === photo.id;
+                    return (
+                      <div
+                        key={photo.id}
+                        className="group relative aspect-square overflow-hidden rounded-lg bg-neutral-100"
+                      >
+                        <img
+                          src={photo.url}
+                          alt={photo.caption || plant.name}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            await setPlantDisplayPhoto({
+                              plantId: plant.id,
+                              photoId: isFavourite ? null : photo.id,
+                            });
+                          }}
+                          className={`absolute top-2 left-2 rounded-full p-1.5 transition-opacity ${
+                            isFavourite
+                              ? "bg-accent-500 text-white opacity-100"
+                              : "bg-black/40 text-white opacity-0 hover:bg-accent-500 group-hover:opacity-100"
+                          }`}
+                          title={isFavourite ? "Remove as display photo" : "Set as display photo"}
+                        >
+                          <Star className={`h-3.5 w-3.5 ${isFavourite ? "fill-current" : ""}`} />
+                        </button>
+                        {photo.caption && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                            <p className="text-xs text-white">{photo.caption}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -591,6 +617,129 @@ export function PlantDetailPage() {
               )}
           </div>
         </div>
+
+        {/* Soil & Environment */}
+        {(plant.phMin != null ||
+          plant.soilNutriments != null ||
+          plant.precipitationMin != null) && (
+          <div className="card p-5">
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">
+              Soil & Environment
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {(plant.phMin != null || plant.phMax != null) && (
+                <InfoItem
+                  icon={<Droplets className="h-4 w-4 text-blue-500" />}
+                  label="Soil pH"
+                  value={
+                    plant.phMin != null && plant.phMax != null
+                      ? `${plant.phMin} – ${plant.phMax}`
+                      : `${plant.phMin ?? plant.phMax}`
+                  }
+                />
+              )}
+              {plant.soilNutriments != null && (
+                <ScaleItem label="Soil Nutriments" value={plant.soilNutriments} />
+              )}
+              {plant.soilHumidity != null && (
+                <ScaleItem label="Soil Humidity" value={plant.soilHumidity} />
+              )}
+              {plant.soilTexture != null && (
+                <ScaleItem label="Soil Texture" value={plant.soilTexture} />
+              )}
+              {plant.soilSalinity != null && (
+                <ScaleItem label="Salt Tolerance" value={plant.soilSalinity} />
+              )}
+              {(plant.precipitationMin != null ||
+                plant.precipitationMax != null) && (
+                <InfoItem
+                  icon={<CloudRain className="h-4 w-4 text-blue-400" />}
+                  label="Precipitation"
+                  value={
+                    plant.precipitationMin != null && plant.precipitationMax != null
+                      ? `${plant.precipitationMin}–${plant.precipitationMax} mm/yr`
+                      : `${plant.precipitationMin ?? plant.precipitationMax} mm/yr`
+                  }
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Seasonal Timing */}
+        {(plant.growthMonths || plant.bloomMonths || plant.fruitMonths || plant.growthRate) && (
+          <div className="card p-5">
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">
+              Seasonal Timing
+            </h2>
+            <div className="space-y-3">
+              {plant.growthMonths && (
+                <MonthBar label="Growth" months={plant.growthMonths} color="bg-green-400" />
+              )}
+              {plant.bloomMonths && (
+                <MonthBar label="Bloom" months={plant.bloomMonths} color="bg-pink-400" />
+              )}
+              {plant.fruitMonths && (
+                <MonthBar label="Fruit" months={plant.fruitMonths} color="bg-amber-400" />
+              )}
+              {plant.growthRate && (
+                <div className="flex items-center gap-2 pt-1">
+                  <TreePine className="h-4 w-4 text-green-600" />
+                  <span className="text-xs text-neutral-500">Growth Rate:</span>
+                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium capitalize text-green-700">
+                    {plant.growthRate}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Appearance */}
+        {(plant.flowerColor || plant.foliageColor || plant.fruitColor || plant.isEvergreen) && (
+          <div className="card p-5">
+            <h2 className="mb-4 text-lg font-semibold text-neutral-900">
+              Appearance
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {plant.flowerColor && (
+                <ColorItem
+                  icon={<Flower2 className="h-4 w-4 text-pink-500" />}
+                  label="Flower"
+                  colors={plant.flowerColor}
+                />
+              )}
+              {plant.foliageColor && (
+                <ColorItem
+                  icon={<Leaf className="h-4 w-4 text-green-500" />}
+                  label="Foliage"
+                  colors={plant.foliageColor}
+                />
+              )}
+              {plant.fruitColor && (
+                <ColorItem
+                  icon={<Palette className="h-4 w-4 text-orange-500" />}
+                  label="Fruit"
+                  colors={plant.fruitColor}
+                />
+              )}
+              {plant.foliageTexture && (
+                <InfoItem
+                  icon={<Leaf className="h-4 w-4 text-green-400" />}
+                  label="Leaf Texture"
+                  value={plant.foliageTexture}
+                />
+              )}
+              {plant.isEvergreen && (
+                <InfoItem
+                  icon={<TreePine className="h-4 w-4 text-green-700" />}
+                  label="Foliage"
+                  value="Evergreen"
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Square Foot Info */}
         <div className="card p-5">
@@ -912,9 +1061,15 @@ export function PlantDetailPage() {
               <TraitBadge label="Attracts Pollinators" />
             )}
             {plant.deerResistant && <TraitBadge label="Deer Resistant" />}
+            {plant.isEvergreen && <TraitBadge label="Evergreen" />}
             {plant.permLayer && (
               <span className="bg-earth-100 text-earth-700 rounded-full px-2.5 py-0.5 text-xs font-medium">
                 {plant.permLayer.replace("_", " ").toLowerCase()} layer
+              </span>
+            )}
+            {plant.edibleParts && (
+              <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                Edible: {plant.edibleParts.split(",").join(", ")}
               </span>
             )}
           </div>
@@ -1013,6 +1168,78 @@ function ScheduleRow({
       <span className="text-sm text-neutral-500">
         {absWeeks} week{absWeeks !== 1 ? "s" : ""} {direction} last frost
       </span>
+    </div>
+  );
+}
+
+const MONTH_ABBRS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTH_LABELS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+
+function MonthBar({
+  label,
+  months,
+  color,
+}: {
+  label: string;
+  months: string;
+  color: string;
+}) {
+  const active = new Set(months.split(",").map((m) => m.trim().toLowerCase()));
+  return (
+    <div>
+      <p className="mb-1 text-xs text-neutral-500">{label}</p>
+      <div className="flex gap-0.5">
+        {MONTH_ABBRS.map((m, i) => (
+          <div
+            key={m}
+            className={`flex h-6 flex-1 items-center justify-center rounded text-[9px] font-medium ${
+              active.has(m) ? `${color} text-white` : "bg-neutral-100 text-neutral-400"
+            }`}
+          >
+            {MONTH_LABELS[i]}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScaleItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xs text-neutral-500">{label}</p>
+      <div className="mt-1 flex items-center gap-2">
+        <div className="h-1.5 flex-1 rounded-full bg-neutral-100">
+          <div
+            className="bg-primary-500 h-1.5 rounded-full"
+            style={{ width: `${(value / 10) * 100}%` }}
+          />
+        </div>
+        <span className="text-xs font-medium text-neutral-600">{value}/10</span>
+      </div>
+    </div>
+  );
+}
+
+function ColorItem({
+  icon,
+  label,
+  colors,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  colors: string;
+}) {
+  const colorList = colors.split(",").map((c) => c.trim());
+  return (
+    <div className="flex items-start gap-2">
+      <div className="mt-0.5 shrink-0">{icon}</div>
+      <div>
+        <p className="text-xs text-neutral-400">{label}</p>
+        <p className="text-sm font-medium capitalize text-neutral-800">
+          {colorList.join(", ")}
+        </p>
+      </div>
     </div>
   );
 }
