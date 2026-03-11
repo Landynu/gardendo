@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { searchOpenFarm, importFromOpenFarm } from "wasp/client/operations"
+import { searchPlants, importPlant } from "wasp/client/operations"
 import { X, Search, Download, Loader2, Globe, Leaf } from "lucide-react"
 import { useNavigate } from "react-router"
 
@@ -8,20 +8,17 @@ type Props = {
   onClose: () => void
 }
 
-type CropResult = {
+type PlantResult = {
   slug: string
   name: string
   binomialName?: string
-  description?: string
-  sunRequirements?: string
   mainImagePath?: string
-  tags: string[]
 }
 
-export function OpenFarmBrowser({ open, onClose }: Props) {
+export function PlantBrowser({ open, onClose }: Props) {
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<CropResult[]>([])
+  const [results, setResults] = useState<PlantResult[]>([])
   const [searching, setSearching] = useState(false)
   const [importing, setImporting] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -36,8 +33,8 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
     setSearched(true)
 
     try {
-      const crops = await searchOpenFarm({ query: query.trim() })
-      setResults(crops)
+      const plants = await searchPlants({ query: query.trim() })
+      setResults(plants)
     } catch (err: any) {
       setError(err.message || "Search failed")
     } finally {
@@ -50,7 +47,7 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
     setError("")
 
     try {
-      const plant = await importFromOpenFarm({ slug })
+      const plant = await importPlant({ slug })
       onClose()
       navigate(`/plants/${plant.id}`)
     } catch (err: any) {
@@ -75,7 +72,7 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary-600" />
             <h2 className="text-lg font-semibold text-neutral-900">
-              Browse OpenFarm
+              Search Plants
             </h2>
           </div>
           <button
@@ -87,8 +84,8 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
         </div>
 
         <p className="mb-4 text-sm text-neutral-500">
-          Search the OpenFarm database to import plant data, growing info, and
-          reference images.
+          Search the Trefle plant database to import growing data and reference
+          images.
         </p>
 
         {error && (
@@ -132,15 +129,15 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
           </div>
         ) : results.length > 0 ? (
           <div className="space-y-3">
-            {results.map((crop) => (
+            {results.map((plant) => (
               <div
-                key={crop.slug}
+                key={plant.slug}
                 className="flex gap-3 rounded-lg border border-neutral-200 p-3 transition-colors hover:bg-neutral-50"
               >
-                {crop.mainImagePath ? (
+                {plant.mainImagePath ? (
                   <img
-                    src={crop.mainImagePath}
-                    alt={crop.name}
+                    src={plant.mainImagePath}
+                    alt={plant.name}
                     className="h-16 w-16 shrink-0 rounded-lg object-cover"
                   />
                 ) : (
@@ -150,40 +147,20 @@ export function OpenFarmBrowser({ open, onClose }: Props) {
                 )}
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-neutral-900">
-                    {crop.name}
+                    {plant.name}
                   </h3>
-                  {crop.binomialName && (
+                  {plant.binomialName && (
                     <p className="text-xs italic text-neutral-500">
-                      {crop.binomialName}
+                      {plant.binomialName}
                     </p>
                   )}
-                  {crop.description && (
-                    <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
-                      {crop.description}
-                    </p>
-                  )}
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {crop.sunRequirements && (
-                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
-                        {crop.sunRequirements}
-                      </span>
-                    )}
-                    {crop.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                 </div>
                 <button
-                  onClick={() => handleImport(crop.slug)}
+                  onClick={() => handleImport(plant.slug)}
                   disabled={importing !== null}
                   className="btn-secondary h-fit shrink-0 self-center !px-3 !py-1.5 text-xs"
                 >
-                  {importing === crop.slug ? (
+                  {importing === plant.slug ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <>

@@ -1,10 +1,8 @@
-import { type DbSeedFn } from "wasp/server"
+import { type DbSeedFn } from "wasp/server";
 
 export const seedPlants: DbSeedFn = async (prisma) => {
-  // Remove previously seeded plants that the user hasn't customized
-  await prisma.plant.deleteMany({
-    where: { dataSource: "SEED", isUserEdited: false },
-  })
+  // Keep seeded plant IDs stable so related records (companions, plantings, photos)
+  // remain valid across repeated seed runs.
 
   const plants = [
     // ═══════════════════════════════════════════════
@@ -2327,11 +2325,81 @@ export const seedPlants: DbSeedFn = async (prisma) => {
       dataSource: "SEED",
       isUserEdited: false,
     },
-  ] as const
+  ] as const;
 
-  const count = await prisma.plant.createMany({
-    data: plants.map((p) => ({ ...p })),
-  })
+  const makeKey = (plant: { name: string; variety: string | null }) =>
+    `${plant.name}::${plant.variety ?? ""}`;
 
-  console.log(`Seeded ${count.count} plants for Zone 3B`)
-}
+  const existingSeedPlants = await prisma.plant.findMany({
+    where: { dataSource: "SEED" },
+    select: {
+      id: true,
+      name: true,
+      variety: true,
+      isUserEdited: true,
+    },
+  });
+
+  const existingByKey = new Map<
+    string,
+    { id: string; isUserEdited: boolean }
+  >();
+
+  for (const plant of existingSeedPlants) {
+    const key = makeKey(plant);
+    const current = existingByKey.get(key);
+
+    // Prefer the customized copy when duplicates already exist.
+    if (!current || plant.isUserEdited) {
+      existingByKey.set(key, {
+        id: plant.id,
+        isUserEdited: plant.isUserEdited,
+      });
+    }
+  }
+
+  let created = 0;
+  let updated = 0;
+  let preserved = 0;
+
+  for (const plant of plants) {
+    const existing = existingByKey.get(makeKey(plant));
+
+    if (!existing) {
+      await prisma.plant.create({
+        data: { ...plant },
+      });
+      created++;
+      continue;
+    }
+
+    if (existing.isUserEdited) {
+      preserved++;
+      continue;
+    }
+
+    await prisma.plant.update({
+      where: { id: existing.id },
+      data: {
+        ...plant,
+        isUserEdited: false,
+      },
+    });
+    updated++;
+  }
+
+  const seededKeys = new Set(plants.map((plant) => makeKey(plant)));
+  const staleSeeds = existingSeedPlants.filter(
+    (plant) => !seededKeys.has(makeKey(plant)),
+  );
+
+  console.log(
+    `Seeded plants: ${created} created, ${updated} refreshed, ${preserved} preserved`,
+  );
+
+  if (staleSeeds.length > 0) {
+    console.log(
+      `${staleSeeds.length} existing seeded plants were left untouched because they are no longer in the current catalog`,
+    );
+  }
+};

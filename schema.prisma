@@ -194,7 +194,7 @@ model Plant {
 
   dataSource   PlantDataSource @default(SEED)
   isUserEdited Boolean         @default(false)
-  openFarmSlug String?
+  externalSlug String?
   lastSyncedAt DateTime?
 
   notes    String?
@@ -259,7 +259,7 @@ enum PermacultureLayer {
 
 enum PlantDataSource {
   SEED
-  OPENFARM
+  TREFLE
   USER
 }
 

@@ -2,9 +2,10 @@ import {
   useQuery,
   getBedById,
   saveBedSquares,
-} from "wasp/client/operations"
-import { type Plant } from "wasp/entities"
-import { Link, useParams } from "react-router"
+  getCompanionships,
+} from "wasp/client/operations";
+import { type Plant } from "wasp/entities";
+import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
   Leaf,
@@ -13,137 +14,155 @@ import {
   Save,
   Palette,
   X,
-} from "lucide-react"
-import { useState, useEffect } from "react"
-import { PlantPalette } from "../components/PlantPalette"
+  Heart,
+  ShieldAlert,
+} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { PlantPalette } from "../components/PlantPalette";
 
-const SEASONS = ["SPRING", "SUMMER", "FALL"] as const
+const SEASONS = ["SPRING", "SUMMER", "FALL"] as const;
 
 export function BedDetailPage() {
-  const { bedId } = useParams()
-  const currentYear = new Date().getFullYear()
-  const [year, setYear] = useState(currentYear)
-  const [season, setSeason] = useState<string>("SPRING")
+  const { bedId } = useParams();
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [season, setSeason] = useState<string>("SPRING");
 
   // Editing state
-  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
-  const [eraserMode, setEraserMode] = useState(false)
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
+  const [eraserMode, setEraserMode] = useState(false);
   const [localSquares, setLocalSquares] = useState<Map<string, Plant>>(
-    new Map()
-  )
-  const [isDirty, setIsDirty] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
+    new Map(),
+  );
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
-  const { data: bed, isLoading, error } = useQuery(getBedById, {
+  const {
+    data: bed,
+    isLoading,
+    error,
+  } = useQuery(getBedById, {
     id: bedId!,
-  })
+  });
+  const { data: companionships } = useQuery(getCompanionships);
+
+  // Build a lookup map: "plantIdA:plantIdB" -> "BENEFICIAL" | "HARMFUL"
+  const companionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!companionships) return map;
+    for (const c of companionships) {
+      map.set(`${c.plantAId}:${c.plantBId}`, c.type);
+      map.set(`${c.plantBId}:${c.plantAId}`, c.type);
+    }
+    return map;
+  }, [companionships]);
 
   // Sync server data → localSquares when bed/year/season changes
   useEffect(() => {
-    if (!bed) return
-    const map = new Map<string, Plant>()
+    if (!bed) return;
+    const map = new Map<string, Plant>();
     for (const sq of bed.squares ?? []) {
       if (sq.year === year && sq.season === season && sq.planting?.plant) {
-        map.set(`${sq.row}-${sq.col}`, sq.planting.plant as Plant)
+        map.set(`${sq.row}-${sq.col}`, sq.planting.plant as Plant);
       }
     }
-    setLocalSquares(map)
-    setIsDirty(false)
-  }, [bed, year, season])
+    setLocalSquares(map);
+    setIsDirty(false);
+  }, [bed, year, season]);
 
   // Unsaved changes guard
   useEffect(() => {
-    if (!isDirty) return
+    if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ""
-    }
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [isDirty])
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   function handleYearChange(newYear: number) {
     if (isDirty && !window.confirm("You have unsaved changes. Discard them?"))
-      return
-    setYear(newYear)
+      return;
+    setYear(newYear);
   }
 
   function handleSeasonChange(newSeason: string) {
     if (isDirty && !window.confirm("You have unsaved changes. Discard them?"))
-      return
-    setSeason(newSeason)
+      return;
+    setSeason(newSeason);
   }
 
   function handleCellClick(row: number, col: number) {
-    const key = `${row}-${col}`
-    const current = localSquares.get(key)
+    const key = `${row}-${col}`;
+    const current = localSquares.get(key);
 
     setLocalSquares((prev) => {
-      const next = new Map(prev)
+      const next = new Map(prev);
       if (eraserMode) {
         if (current) {
-          next.delete(key)
-          setIsDirty(true)
+          next.delete(key);
+          setIsDirty(true);
         }
       } else if (selectedPlant) {
-        next.set(key, selectedPlant)
-        setIsDirty(true)
+        next.set(key, selectedPlant);
+        setIsDirty(true);
       } else if (current) {
         // No tool selected + planted cell = clear it
-        next.delete(key)
-        setIsDirty(true)
+        next.delete(key);
+        setIsDirty(true);
       } else {
         // No tool, empty cell: open palette on mobile
-        if (window.innerWidth < 768) setPaletteOpen(true)
-        return prev
+        if (window.innerWidth < 768) setPaletteOpen(true);
+        return prev;
       }
-      return next
-    })
+      return next;
+    });
   }
 
   async function handleSave() {
-    if (!bed || !isDirty) return
-    setIsSaving(true)
+    if (!bed || !isDirty) return;
+    setIsSaving(true);
     try {
       const squares: { row: number; col: number; plantId: string | null }[] =
-        []
+        [];
       for (const [key, plant] of localSquares) {
-        const [r, c] = key.split("-").map(Number)
-        squares.push({ row: r, col: c, plantId: plant.id })
+        const [r, c] = key.split("-").map(Number);
+        squares.push({ row: r, col: c, plantId: plant.id });
       }
       await saveBedSquares({
         bedId: bed.id,
         year,
         season,
         squares,
-      })
-      setIsDirty(false)
+      });
+      setIsDirty(false);
     } catch (err) {
-      console.error("Failed to save bed squares:", err)
+      console.error("Failed to save bed squares:", err);
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
   }
 
   function handleSelectPlant(plant: Plant | null) {
-    setSelectedPlant(plant)
-    setEraserMode(false)
+    setSelectedPlant(plant);
+    setEraserMode(false);
   }
 
   function handleToggleEraser() {
-    setEraserMode(!eraserMode)
-    setSelectedPlant(null)
+    setEraserMode(!eraserMode);
+    setSelectedPlant(null);
   }
 
   if (isLoading) {
     return (
       <div className="page-container">
         <div className="flex items-center justify-center py-20">
-          <Leaf className="h-8 w-8 animate-spin text-primary-500" />
+          <Leaf className="text-primary-500 h-8 w-8 animate-spin" />
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !bed) {
@@ -158,14 +177,14 @@ export function BedDetailPage() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
-  const rows = bed.lengthFt
-  const cols = bed.widthFt
+  const rows = bed.lengthFt;
+  const cols = bed.widthFt;
 
   // Derive legend from localSquares
-  const legendPlants = getUniquePlants(localSquares)
+  const legendPlants = getUniquePlants(localSquares);
 
   return (
     <div className="page-container">
@@ -215,9 +234,7 @@ export function BedDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-neutral-700">
-            Season
-          </label>
+          <label className="text-sm font-medium text-neutral-700">Season</label>
           <div className="flex rounded-lg border border-neutral-300 bg-white">
             {SEASONS.map((s) => (
               <button
@@ -244,18 +261,18 @@ export function BedDetailPage() {
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {/* Selected plant indicator */}
             {selectedPlant && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5">
+              <div className="border-primary-200 bg-primary-50 flex items-center gap-2 rounded-lg border px-3 py-1.5">
                 <div
                   className="h-5 w-5 rounded"
                   style={{
                     backgroundColor: selectedPlant.sqftColor ?? "#22c55e",
                   }}
                 />
-                <span className="text-sm font-medium text-primary-800">
+                <span className="text-primary-800 text-sm font-medium">
                   {selectedPlant.name}
                 </span>
                 <button onClick={() => setSelectedPlant(null)}>
-                  <X className="h-4 w-4 text-primary-400 hover:text-primary-600" />
+                  <X className="text-primary-400 hover:text-primary-600 h-4 w-4" />
                 </button>
               </div>
             )}
@@ -305,7 +322,7 @@ export function BedDetailPage() {
           {/* Square Foot Grid */}
           <div className="card overflow-x-auto p-5">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-neutral-900">
-              <Grid3X3 className="h-5 w-5 text-primary-600" />
+              <Grid3X3 className="text-primary-600 h-5 w-5" />
               Bed Layout
             </h2>
 
@@ -344,8 +361,67 @@ export function BedDetailPage() {
 
                   {/* Cells */}
                   {Array.from({ length: cols }, (_, c) => {
-                    const key = `${r}-${c}`
-                    const plant = localSquares.get(key) ?? null
+                    const key = `${r}-${c}`;
+                    const plant = localSquares.get(key) ?? null;
+
+                    // Check adjacent cells for companion relationships
+                    const neighbors = [
+                      [r - 1, c],
+                      [r + 1, c],
+                      [r, c - 1],
+                      [r, c + 1],
+                    ];
+                    let hasBeneficial = false;
+                    let hasHarmful = false;
+                    const companionDetails: string[] = [];
+
+                    if (plant && companionMap.size > 0) {
+                      const seen = new Set<string>();
+                      for (const [nr, nc] of neighbors) {
+                        const neighbor = localSquares.get(`${nr}-${nc}`);
+                        if (!neighbor || neighbor.id === plant.id) continue;
+                        const rel = companionMap.get(
+                          `${plant.id}:${neighbor.id}`,
+                        );
+                        if (!rel) continue;
+                        if (rel === "BENEFICIAL") {
+                          hasBeneficial = true;
+                          if (!seen.has(neighbor.name)) {
+                            companionDetails.push(`+ ${neighbor.name}`);
+                            seen.add(neighbor.name);
+                          }
+                        }
+                        if (rel === "HARMFUL") {
+                          hasHarmful = true;
+                          if (!seen.has(neighbor.name)) {
+                            companionDetails.push(`! ${neighbor.name}`);
+                            seen.add(neighbor.name);
+                          }
+                        }
+                      }
+                    }
+
+                    // Preview: when a plant is selected, show what would happen
+                    let previewBeneficial = false;
+                    let previewHarmful = false;
+                    if (!plant && selectedPlant && companionMap.size > 0) {
+                      for (const [nr, nc] of neighbors) {
+                        const neighbor = localSquares.get(`${nr}-${nc}`);
+                        if (!neighbor) continue;
+                        const rel = companionMap.get(
+                          `${selectedPlant.id}:${neighbor.id}`,
+                        );
+                        if (rel === "BENEFICIAL") previewBeneficial = true;
+                        if (rel === "HARMFUL") previewHarmful = true;
+                      }
+                    }
+
+                    const tooltipLines = [
+                      plant
+                        ? `${plant.name}${plant.plantsPerSqFt ? ` (${plant.plantsPerSqFt}/sq ft)` : ""}`
+                        : `Empty (${r + 1}, ${c + 1})`,
+                      ...companionDetails,
+                    ].join("\n");
 
                     return (
                       <div
@@ -353,26 +429,35 @@ export function BedDetailPage() {
                         onClick={() => handleCellClick(r, c)}
                         className={`group relative flex aspect-square flex-col items-center justify-center rounded-md border-2 text-xs font-bold transition-all ${
                           plant
-                            ? `cursor-pointer border-white/40 text-white shadow-sm hover:scale-105 hover:shadow-md ${eraserMode ? "hover:border-red-400" : ""}`
-                            : "cursor-pointer border-dashed border-neutral-200 bg-neutral-50 text-neutral-300 hover:border-primary-300 hover:bg-primary-50"
+                            ? `cursor-pointer text-white shadow-sm hover:scale-105 hover:shadow-md ${
+                                hasHarmful
+                                  ? "border-red-400 ring-1 ring-red-300"
+                                  : hasBeneficial
+                                    ? "border-emerald-300 ring-1 ring-emerald-200"
+                                    : "border-white/40"
+                              } ${eraserMode ? "hover:border-red-400" : ""}`
+                            : `hover:border-primary-300 hover:bg-primary-50 cursor-pointer border-dashed text-neutral-300 ${
+                                previewHarmful
+                                  ? "border-red-300 bg-red-50"
+                                  : previewBeneficial
+                                    ? "border-emerald-300 bg-emerald-50"
+                                    : "border-neutral-200 bg-neutral-50"
+                              }`
                         }`}
                         style={
                           plant
                             ? {
-                                backgroundColor:
-                                  plant.sqftColor ?? "#22c55e",
+                                backgroundColor: plant.sqftColor ?? "#22c55e",
                               }
-                            : selectedPlant
+                            : selectedPlant &&
+                                !previewBeneficial &&
+                                !previewHarmful
                               ? {
                                   borderColor: `${selectedPlant.sqftColor ?? "#22c55e"}40`,
                                 }
                               : undefined
                         }
-                        title={
-                          plant
-                            ? `${plant.name}${plant.plantsPerSqFt ? ` (${plant.plantsPerSqFt}/sq ft)` : ""}`
-                            : `Empty (${r + 1}, ${c + 1})`
-                        }
+                        title={tooltipLines}
                       >
                         {plant ? (
                           <>
@@ -384,18 +469,45 @@ export function BedDetailPage() {
                                 {plant.plantsPerSqFt}
                               </span>
                             )}
+                            {/* Companion indicator dots */}
+                            {(hasBeneficial || hasHarmful) && (
+                              <div className="absolute -top-1 -right-1 flex gap-0.5">
+                                {hasHarmful && (
+                                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] text-white shadow">
+                                    !
+                                  </span>
+                                )}
+                                {hasBeneficial && !hasHarmful && (
+                                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white shadow">
+                                    &#10003;
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {/* Tooltip */}
                             <div className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 rounded bg-neutral-800 px-2 py-1 text-xs font-normal whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                               {plant.name}
                               {plant.plantsPerSqFt &&
                                 ` (${plant.plantsPerSqFt}/sq ft)`}
+                              {companionDetails.length > 0 && (
+                                <span className="ml-1 text-neutral-300">
+                                  {" "}
+                                  | {companionDetails.join(", ")}
+                                </span>
+                              )}
                             </div>
                           </>
                         ) : (
-                          <span className="text-xs">+</span>
+                          <span className="text-xs">
+                            {previewHarmful
+                              ? "!"
+                              : previewBeneficial
+                                ? "\u2713"
+                                : "+"}
+                          </span>
                         )}
                       </div>
-                    )
+                    );
                   })}
                 </div>
               ))}
@@ -439,6 +551,35 @@ export function BedDetailPage() {
             </div>
           )}
 
+          {/* Companion indicator legend */}
+          {legendPlants.length > 1 && companionMap.size > 0 && (
+            <div className="mt-4">
+              <div className="card p-4">
+                <h3 className="mb-3 text-sm font-semibold text-neutral-700">
+                  Companion Planting
+                </h3>
+                <div className="mb-3 flex flex-wrap gap-4 text-xs text-neutral-500">
+                  <span className="flex items-center gap-1.5">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white">
+                      &#10003;
+                    </span>
+                    Beneficial neighbor
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] text-white">
+                      !
+                    </span>
+                    Harmful neighbor
+                  </span>
+                </div>
+                <CompanionSummary
+                  plants={legendPlants}
+                  companionMap={companionMap}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Bed notes */}
           {bed.notes && (
             <div className="mt-4">
@@ -460,20 +601,110 @@ export function BedDetailPage() {
           onToggleEraser={handleToggleEraser}
           isOpen={paletteOpen}
           onClose={() => setPaletteOpen(false)}
+          bedPlants={legendPlants}
+          companionMap={companionMap}
         />
       </div>
     </div>
-  )
+  );
 }
 
 function getUniquePlants(squares: Map<string, Plant>): Plant[] {
-  const seen = new Set<string>()
-  const plants: Plant[] = []
+  const seen = new Set<string>();
+  const plants: Plant[] = [];
   for (const plant of squares.values()) {
     if (!seen.has(plant.id)) {
-      seen.add(plant.id)
-      plants.push(plant)
+      seen.add(plant.id);
+      plants.push(plant);
     }
   }
-  return plants.sort((a, b) => a.name.localeCompare(b.name))
+  return plants.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function CompanionSummary({
+  plants,
+  companionMap,
+}: {
+  plants: Plant[];
+  companionMap: Map<string, string>;
+}) {
+  const summaries = plants
+    .map((plant) => {
+      const beneficial = plants.filter(
+        (other) =>
+          other.id !== plant.id &&
+          companionMap.get(`${plant.id}:${other.id}`) === "BENEFICIAL",
+      );
+      const harmful = plants.filter(
+        (other) =>
+          other.id !== plant.id &&
+          companionMap.get(`${plant.id}:${other.id}`) === "HARMFUL",
+      );
+
+      return {
+        plant,
+        beneficial,
+        harmful,
+      };
+    })
+    .filter(
+      (summary) => summary.beneficial.length > 0 || summary.harmful.length > 0,
+    );
+
+  if (summaries.length === 0) {
+    return (
+      <p className="text-sm text-neutral-500">
+        No stored companion guidance connects the plants currently in this bed.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {summaries.map(({ plant, beneficial, harmful }) => (
+        <div
+          key={plant.id}
+          className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3"
+        >
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-xs font-bold text-white"
+            style={{ backgroundColor: plant.sqftColor ?? "#22c55e" }}
+          >
+            {plant.name.slice(0, 2).toUpperCase()}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-neutral-800">{plant.name}</p>
+            {plant.variety && (
+              <p className="text-xs text-neutral-400">{plant.variety}</p>
+            )}
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {beneficial.map((match) => (
+                <Link
+                  key={`beneficial-${plant.id}-${match.id}`}
+                  to={`/plants/${match.id}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-200"
+                >
+                  <Heart className="h-3 w-3" />
+                  {match.name}
+                </Link>
+              ))}
+
+              {harmful.map((match) => (
+                <Link
+                  key={`harmful-${plant.id}-${match.id}`}
+                  to={`/plants/${match.id}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200"
+                >
+                  <ShieldAlert className="h-3 w-3" />
+                  {match.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }

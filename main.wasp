@@ -36,7 +36,8 @@ app gardendo {
   },
   db: {
     seeds: [
-      import { seedPlants } from "@src/seeds/plants"
+      import { seedPlants } from "@src/seeds/plants",
+      import { seedCompanions } from "@src/seeds/companions"
     ]
   }
 }
@@ -80,6 +81,12 @@ route PlantsRoute { path: "/plants", to: PlantsPage }
 page PlantsPage {
   authRequired: true,
   component: import { PlantsPage } from "@src/pages/PlantsPage"
+}
+
+route CompanionChartRoute { path: "/plants/companions", to: CompanionChartPage }
+page CompanionChartPage {
+  authRequired: true,
+  component: import { CompanionChartPage } from "@src/pages/CompanionChartPage"
 }
 
 route PlantDetailRoute { path: "/plants/:plantId", to: PlantDetailPage }
@@ -235,15 +242,37 @@ action getUploadUrl {
   entities: [Photo, PropertyMember]
 }
 
-// ─── OPENFARM API ──────────────────────────
+// ─── COMPANION PLANT QUERIES & ACTIONS ─────
 
-action searchOpenFarm {
-  fn: import { searchOpenFarm } from "@src/plants/actions",
+query getCompanionships {
+  fn: import { getCompanionships } from "@src/plants/queries",
+  entities: [CompanionPlant, Plant]
+}
+
+action addCompanion {
+  fn: import { addCompanion } from "@src/plants/actions",
+  entities: [CompanionPlant, Plant]
+}
+
+action removeCompanion {
+  fn: import { removeCompanion } from "@src/plants/actions",
+  entities: [CompanionPlant]
+}
+
+action updateCompanion {
+  fn: import { updateCompanion } from "@src/plants/actions",
+  entities: [CompanionPlant]
+}
+
+// ─── PLANT SEARCH API ──────────────────────
+
+action searchPlants {
+  fn: import { searchPlants } from "@src/plants/actions",
   entities: [Plant]
 }
 
-action importFromOpenFarm {
-  fn: import { importFromOpenFarm } from "@src/plants/actions",
+action importPlant {
+  fn: import { importPlant } from "@src/plants/actions",
   entities: [Plant]
 }
 

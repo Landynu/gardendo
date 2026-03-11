@@ -1,9 +1,9 @@
-import { useQuery, getPlants } from "wasp/client/operations"
-import { Link } from "react-router"
-import { Search, Plus, Leaf, Sprout, Globe } from "lucide-react"
-import { useState } from "react"
-import { PlantFormModal } from "../components/PlantFormModal"
-import { OpenFarmBrowser } from "../components/OpenFarmBrowser"
+import { useQuery, getPlants } from "wasp/client/operations";
+import { Link } from "react-router";
+import { Search, Plus, Leaf, Sprout, Globe, Grid3X3 } from "lucide-react";
+import { useState } from "react";
+import { PlantFormModal } from "../components/PlantFormModal";
+import { PlantBrowser } from "../components/PlantBrowser";
 
 const CATEGORIES = [
   "ALL",
@@ -15,7 +15,7 @@ const CATEGORIES = [
   "SHRUB",
   "COVER_CROP",
   "GRASS",
-] as const
+] as const;
 
 const categoryLabels: Record<string, string> = {
   ALL: "All",
@@ -27,34 +27,41 @@ const categoryLabels: Record<string, string> = {
   SHRUB: "Shrub",
   COVER_CROP: "Cover Crop",
   GRASS: "Grass",
-}
+};
 
 const lifecycleColors: Record<string, string> = {
   ANNUAL: "bg-primary-100 text-primary-700",
   BIENNIAL: "bg-blue-100 text-blue-700",
   PERENNIAL: "bg-purple-100 text-purple-700",
-}
+};
 
 export function PlantsPage() {
-  const [search, setSearch] = useState("")
-  const [category, setCategory] = useState<string>("ALL")
-  const [showForm, setShowForm] = useState(false)
-  const [showBrowser, setShowBrowser] = useState(false)
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string>("ALL");
+  const [showForm, setShowForm] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
 
-  const queryArgs: { search?: string; category?: string } = {}
-  if (search.trim()) queryArgs.search = search.trim()
-  if (category !== "ALL") queryArgs.category = category
+  const queryArgs: { search?: string; category?: string } = {};
+  if (search.trim()) queryArgs.search = search.trim();
+  if (category !== "ALL") queryArgs.category = category;
 
-  const { data: plants, isLoading } = useQuery(getPlants, queryArgs)
+  const { data: plants, isLoading } = useQuery(getPlants, queryArgs);
 
   return (
     <div className="page-container">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="page-title">Plants</h1>
         <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => setShowBrowser(true)}>
+          <Link to="/plants/companions" className="btn-secondary">
+            <Grid3X3 className="h-4 w-4" />
+            Companion Chart
+          </Link>
+          <button
+            className="btn-secondary"
+            onClick={() => setShowBrowser(true)}
+          >
             <Globe className="h-4 w-4" />
-            Browse OpenFarm
+            Search Plants
           </button>
           <button className="btn-primary" onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4" />
@@ -72,7 +79,7 @@ export function PlantsPage() {
             placeholder="Search plants..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 bg-white py-2 pr-4 pl-10 text-sm text-neutral-800 placeholder-neutral-400 transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
+            className="focus:border-primary-500 focus:ring-primary-200 w-full rounded-lg border border-neutral-300 bg-white py-2 pr-4 pl-10 text-sm text-neutral-800 placeholder-neutral-400 transition-colors focus:ring-2 focus:outline-none"
           />
         </div>
       </div>
@@ -97,7 +104,7 @@ export function PlantsPage() {
       {/* Plants Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Leaf className="h-8 w-8 animate-spin text-primary-500" />
+          <Leaf className="text-primary-500 h-8 w-8 animate-spin" />
         </div>
       ) : !plants || plants.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -133,7 +140,7 @@ export function PlantsPage() {
                 </span>
               </div>
 
-              <h3 className="font-semibold text-neutral-900 group-hover:text-primary-700">
+              <h3 className="group-hover:text-primary-700 font-semibold text-neutral-900">
                 {plant.name}
               </h3>
               {plant.variety && (
@@ -157,7 +164,10 @@ export function PlantsPage() {
         </div>
       )}
       <PlantFormModal open={showForm} onClose={() => setShowForm(false)} />
-      <OpenFarmBrowser open={showBrowser} onClose={() => setShowBrowser(false)} />
+      <PlantBrowser
+        open={showBrowser}
+        onClose={() => setShowBrowser(false)}
+      />
     </div>
-  )
+  );
 }
