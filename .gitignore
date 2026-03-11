@@ -1,0 +1,23 @@
+/.wasp/out/
+/.wasp/telemetry
+/.wasp/node_modules/
+node_modules/
+
+# Env
+.env
+.env.server
+.env.client
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build
+dist/
+
+# Reference docs (large files)
+wasp.txt

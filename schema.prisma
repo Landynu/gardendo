@@ -1,0 +1,638 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── USER & PROPERTY ────────────────────────
+
+model User {
+  id          String @id @default(uuid())
+  username    String
+
+  memberships PropertyMember[]
+  tasks       Task[]
+  harvestLogs HarvestLog[]
+}
+
+enum PropertyRole {
+  OWNER
+  MEMBER
+}
+
+model Property {
+  id             String   @id @default(uuid())
+  name           String
+  acreage        Float
+  hardinessZone  String   @default("3B")
+  lastFrostDate  String   @default("05-21")
+  firstFrostDate String   @default("09-12")
+  timezone       String   @default("America/Regina")
+  latitude       Float?
+  longitude      Float?
+  notes          String?
+
+  members        PropertyMember[]
+  zones          PropertyZone[]
+  waterSystems   WaterSystem[]
+  animals        AnimalGroup[]
+  compostBins    CompostBin[]
+  calendarEvents CalendarEvent[]
+  tasks          Task[]
+  photos         Photo[]
+  inventoryItems InventoryItem[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PropertyMember {
+  id         String       @id @default(uuid())
+  role       PropertyRole @default(MEMBER)
+
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+model PropertyZone {
+  id          String           @id @default(uuid())
+  name        String
+  permZone    PermacultureZone
+  description String?
+  areaSqFt    Float?
+  notes       String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  gardenBeds GardenBed[]
+  photos     Photo[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum PermacultureZone {
+  ZONE_0
+  ZONE_1
+  ZONE_2
+  ZONE_3
+  ZONE_4
+  ZONE_5
+}
+
+// ─── GARDEN BEDS & PLANTINGS ────────────────
+
+model GardenBed {
+  id       String @id @default(uuid())
+  name     String
+  widthFt  Int
+  lengthFt Int
+  soilType String?
+  notes    String?
+
+  zone   PropertyZone @relation(fields: [zoneId], references: [id])
+  zoneId String
+
+  squares   BedSquare[]
+  plantings Planting[]
+  photos    Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BedSquare {
+  id         String @id @default(uuid())
+  row        Int
+  col        Int
+  year       Int
+  season     Season @default(SPRING)
+
+  bed        GardenBed @relation(fields: [bedId], references: [id])
+  bedId      String
+  planting   Planting? @relation(fields: [plantingId], references: [id])
+  plantingId String?
+
+  notes String?
+
+  @@unique([bedId, row, col, year, season])
+}
+
+enum Season {
+  SPRING
+  SUMMER
+  FALL
+}
+
+model Planting {
+  id            String @id @default(uuid())
+  year          Int
+  season        Season @default(SPRING)
+  datePlanted   String?
+  dateHarvested String?
+  notes         String?
+
+  plant   Plant     @relation(fields: [plantId], references: [id])
+  plantId String
+  bed     GardenBed @relation(fields: [bedId], references: [id])
+  bedId   String
+
+  squares     BedSquare[]
+  harvestLogs HarvestLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── PLANT DATABASE ─────────────────────────
+
+model Plant {
+  id               String         @id @default(uuid())
+  name             String
+  scientificName   String?
+  variety          String?
+  category         PlantCategory
+  lifecycle        PlantLifecycle
+  hardinessZoneMin String?
+  hardinessZoneMax String?
+
+  sunRequirement    SunRequirement?
+  waterNeed         WaterNeed?
+  seasonType        SeasonType?
+  daysToMaturity    Int?
+  daysToGermination Int?
+  plantDepthInches  Float?
+  spacingInches     Float?
+  rowSpacingInches  Float?
+  plantHeightInches Float?
+
+  startIndoorWeeks     Int?
+  transplantWeeks      Int?
+  directSowWeeks       Int?
+  harvestRelativeWeeks Int?
+
+  plantsPerSqFt Int?
+  sqftColor     String?
+
+  permLayer            PermacultureLayer?
+  isNitrogenFixer      Boolean @default(false)
+  isDynamicAccumulator Boolean @default(false)
+  isEdible             Boolean @default(true)
+  isMedicinal          Boolean @default(false)
+  attractsPollinators  Boolean @default(false)
+  deerResistant        Boolean @default(false)
+
+  dataSource   PlantDataSource @default(SEED)
+  isUserEdited Boolean         @default(false)
+  openFarmSlug String?
+  lastSyncedAt DateTime?
+
+  notes    String?
+  imageUrl String?
+
+  plantings      Planting[]
+  companionsA    CompanionPlant[] @relation("CompanionA")
+  companionsB    CompanionPlant[] @relation("CompanionB")
+  seedInventory  SeedInventory[]
+  calendarEvents CalendarEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PlantCategory {
+  VEGETABLE
+  FRUIT
+  TREE
+  SHRUB
+  HERB
+  COVER_CROP
+  FLOWER
+  GRASS
+}
+
+enum PlantLifecycle {
+  ANNUAL
+  BIENNIAL
+  PERENNIAL
+}
+
+enum SunRequirement {
+  FULL_SUN
+  PARTIAL_SUN
+  PARTIAL_SHADE
+  FULL_SHADE
+}
+
+enum WaterNeed {
+  LOW
+  MODERATE
+  HIGH
+}
+
+enum SeasonType {
+  COOL
+  WARM
+}
+
+enum PermacultureLayer {
+  CANOPY
+  UNDERSTORY
+  SHRUB
+  HERBACEOUS
+  GROUND_COVER
+  VINE
+  ROOT
+  FUNGAL
+}
+
+enum PlantDataSource {
+  SEED
+  OPENFARM
+  USER
+}
+
+model CompanionPlant {
+  id    String        @id @default(uuid())
+  type  CompanionType
+  notes String?
+
+  plantA   Plant  @relation("CompanionA", fields: [plantAId], references: [id])
+  plantAId String
+  plantB   Plant  @relation("CompanionB", fields: [plantBId], references: [id])
+  plantBId String
+
+  @@unique([plantAId, plantBId])
+}
+
+enum CompanionType {
+  BENEFICIAL
+  HARMFUL
+  NEUTRAL
+}
+
+// ─── CALENDAR & TASKS ───────────────────────
+
+model CalendarEvent {
+  id            String            @id @default(uuid())
+  title         String
+  description   String?
+  eventType     CalendarEventType
+  date          String
+  endDate       String?
+  allDay        Boolean @default(true)
+
+  autoGenerated Boolean @default(false)
+  generationKey String? @unique
+  isUserEdited  Boolean @default(false)
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+  plant      Plant?   @relation(fields: [plantId], references: [id])
+  plantId    String?
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum CalendarEventType {
+  SEED_START_INDOOR
+  SEED_START_OUTDOOR
+  TRANSPLANT
+  HARVEST_START
+  HARVEST_END
+  PRUNING
+  FERTILIZE
+  COMPOST
+  ANIMAL_CARE
+  WATER_SYSTEM
+  MAINTENANCE
+  CUSTOM
+}
+
+model Task {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus     @default(PENDING)
+  priority    TaskPriority   @default(MEDIUM)
+  dueDate     String?
+  completedAt DateTime?
+  recurrence  TaskRecurrence @default(NONE)
+  notes       String?
+
+  generationKey String? @unique
+  isUserEdited  Boolean @default(false)
+
+  assignee   User     @relation(fields: [assigneeId], references: [id])
+  assigneeId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  calendarEvent   CalendarEvent? @relation(fields: [calendarEventId], references: [id])
+  calendarEventId String?
+
+  photos Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  SEASONAL
+  YEARLY
+}
+
+// ─── ANIMALS ────────────────────────────────
+
+model AnimalGroup {
+  id         String     @id @default(uuid())
+  name       String
+  animalType AnimalType
+  notes      String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  animals Animal[]
+  eggLogs EggLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AnimalType {
+  CHICKEN
+}
+
+model Animal {
+  id           String  @id @default(uuid())
+  name         String?
+  breed        String?
+  dateOfBirth  String?
+  dateAcquired String?
+  isActive     Boolean @default(true)
+  notes        String?
+
+  group   AnimalGroup @relation(fields: [groupId], references: [id])
+  groupId String
+
+  healthRecords AnimalHealthRecord[]
+  photos        Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AnimalHealthRecord {
+  id          String @id @default(uuid())
+  date        String
+  description String
+  treatment   String?
+  notes       String?
+
+  animal   Animal @relation(fields: [animalId], references: [id])
+  animalId String
+
+  createdAt DateTime @default(now())
+}
+
+model EggLog {
+  id    String @id @default(uuid())
+  date  String
+  count Int
+  notes String?
+
+  group   AnimalGroup @relation(fields: [groupId], references: [id])
+  groupId String
+
+  createdAt DateTime @default(now())
+}
+
+// ─── WATER SYSTEMS ──────────────────────────
+
+model WaterSystem {
+  id              String          @id @default(uuid())
+  name            String
+  sourceType      WaterSourceType
+  capacityGallons Float?
+  notes           String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  logs WaterLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum WaterSourceType {
+  RAINWATER
+  RIVER_PUMP
+  WELL
+  MUNICIPAL
+}
+
+model WaterLog {
+  id           String @id @default(uuid())
+  date         String
+  levelGallons Float?
+  usageGallons Float?
+  notes        String?
+
+  system   WaterSystem @relation(fields: [systemId], references: [id])
+  systemId String
+
+  createdAt DateTime @default(now())
+}
+
+// ─── COMPOSTING ─────────────────────────────
+
+model CompostBin {
+  id           String @id @default(uuid())
+  name         String
+  type         String?
+  capacityCuFt Float?
+  notes        String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  logs CompostLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompostLog {
+  id             String @id @default(uuid())
+  date           String
+  action         String
+  tempFahrenheit Float?
+  notes          String?
+
+  bin   CompostBin @relation(fields: [binId], references: [id])
+  binId String
+
+  createdAt DateTime @default(now())
+}
+
+// ─── INVENTORY ──────────────────────────────
+
+model SeedInventory {
+  id            String @id @default(uuid())
+  quantity      Int?
+  unit          String?
+  supplier      String?
+  yearPurchased Int?
+  expiryYear    Int?
+  lotNumber     String?
+  notes         String?
+
+  plant   Plant  @relation(fields: [plantId], references: [id])
+  plantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryItem {
+  id        String            @id @default(uuid())
+  name      String
+  category  InventoryCategory
+  quantity  Int?
+  unit      String?
+  location  String?
+  condition String?
+  notes     String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  photos Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum InventoryCategory {
+  SEED
+  TOOL
+  AMENDMENT
+  FEED
+  SUPPLY
+}
+
+// ─── HARVEST TRACKING ───────────────────────
+
+model HarvestLog {
+  id          String @id @default(uuid())
+  date        String
+  quantityLbs Float?
+  notes       String?
+
+  planting   Planting @relation(fields: [plantingId], references: [id])
+  plantingId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+
+  photos Photo[]
+
+  createdAt DateTime @default(now())
+}
+
+// ─── PHOTOS ─────────────────────────────────
+
+model Photo {
+  id      String  @id @default(uuid())
+  key     String
+  caption String?
+  takenAt String?
+
+  property     Property       @relation(fields: [propertyId], references: [id])
+  propertyId   String
+  zone         PropertyZone?  @relation(fields: [zoneId], references: [id])
+  zoneId       String?
+  bed          GardenBed?     @relation(fields: [bedId], references: [id])
+  bedId        String?
+  task         Task?          @relation(fields: [taskId], references: [id])
+  taskId       String?
+  animal       Animal?        @relation(fields: [animalId], references: [id])
+  animalId     String?
+  harvestLog   HarvestLog?    @relation(fields: [harvestLogId], references: [id])
+  harvestLogId String?
+  inventory    InventoryItem? @relation(fields: [inventoryId], references: [id])
+  inventoryId  String?
+
+  createdAt DateTime @default(now())
+}
+
+// ─── APP SETTINGS & HOME ASSISTANT ──────────
+
+model AppSettings {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+
+  updatedAt DateTime @updatedAt
+}
+
+model HaSensor {
+  id         String  @id @default(uuid())
+  entityId   String  @unique
+  name       String
+  sensorType String
+  unit       String?
+  zoneId     String?
+  isActive   Boolean @default(true)
+
+  readings HaSensorReading[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HaSensorReading {
+  id           String   @id @default(uuid())
+  value        String
+  numericValue Float?
+  isRollup     Boolean  @default(false)
+  recordedAt   DateTime @default(now())
+
+  sensor   HaSensor @relation(fields: [sensorId], references: [id])
+  sensorId String
+
+  @@index([sensorId, recordedAt])
+}

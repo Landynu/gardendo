@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --text-tiny: 0.625rem;
+  --text-tiny--line-height: 1rem;
+
+  /* Earth-tone farm palette */
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-300: #86efac;
+  --color-primary-400: #4ade80;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
+  --color-primary-950: #052e16;
+
+  /* Warm earth accent */
+  --color-accent-50: #fefce8;
+  --color-accent-100: #fef9c3;
+  --color-accent-200: #fef08a;
+  --color-accent-300: #fde047;
+  --color-accent-400: #facc15;
+  --color-accent-500: #eab308;
+  --color-accent-600: #ca8a04;
+  --color-accent-700: #a16207;
+  --color-accent-800: #854d0e;
+  --color-accent-900: #713f12;
+  --color-accent-950: #422006;
+
+  /* Soil brown */
+  --color-earth-50: #fdf8f0;
+  --color-earth-100: #f5ead6;
+  --color-earth-200: #e8d5b0;
+  --color-earth-300: #d4b682;
+  --color-earth-400: #c19a5c;
+  --color-earth-500: #a67c3d;
+  --color-earth-600: #8b6432;
+  --color-earth-700: #704e2a;
+  --color-earth-800: #5a3f24;
+  --color-earth-900: #47331f;
+  --color-earth-950: #2a1e12;
+}
+
+body {
+  @apply has-[dialog:open]:overflow-hidden;
+}
+
+@utility card {
+  @apply rounded-xl border border-neutral-200 bg-white shadow-xs transition-all duration-200;
+}
+
+@utility label {
+  @apply text-sm font-medium text-neutral-700;
+}
+
+@utility page-container {
+  @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8;
+}
+
+@utility page-title {
+  @apply text-2xl font-bold tracking-tight text-neutral-900;
+}
+
+@utility btn-primary {
+  @apply inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-xs transition-colors hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:outline-none;
+}
+
+@utility btn-secondary {
+  @apply inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-xs transition-colors hover:bg-neutral-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:outline-none;
+}

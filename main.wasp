@@ -1,0 +1,244 @@
+app gardendo {
+  wasp: {
+    version: "^0.21.1"
+  },
+  title: "GardenDo",
+  head: [
+    "<link rel='icon' href='/favicon.ico' />",
+    "<meta name='viewport' content='width=device-width, initial-scale=1.0' />",
+    "<meta name='description' content='Permaculture property management' />"
+  ],
+  auth: {
+    userEntity: User,
+    methods: {
+      email: {
+        fromField: {
+          name: "GardenDo",
+          email: "hello@example.com"
+        },
+        userSignupFields: import { userSignupFields } from "@src/auth/userSignupFields",
+        emailVerification: {
+          clientRoute: EmailVerificationRoute,
+        },
+        passwordReset: {
+          clientRoute: PasswordResetRoute,
+        }
+      },
+    },
+    onAuthSucceededRedirectTo: "/",
+    onAuthFailedRedirectTo: "/login",
+  },
+  emailSender: {
+    provider: Dummy,
+  },
+  client: {
+    rootComponent: import { App } from "@src/App",
+  },
+  db: {
+    seeds: [
+      import { seedPlants } from "@src/seeds/plants"
+    ]
+  }
+}
+
+// ─── AUTH ROUTES ────────────────────────────
+
+route LoginRoute { path: "/login", to: LoginPage }
+page LoginPage {
+  component: import { LoginPage } from "@src/auth/LoginPage"
+}
+
+route SignupRoute { path: "/signup", to: SignupPage }
+page SignupPage {
+  component: import { SignupPage } from "@src/auth/SignupPage"
+}
+
+route RequestPasswordResetRoute { path: "/request-password-reset", to: RequestPasswordResetPage }
+page RequestPasswordResetPage {
+  component: import { RequestPasswordResetPage } from "@src/auth/RequestPasswordResetPage",
+}
+
+route PasswordResetRoute { path: "/password-reset", to: PasswordResetPage }
+page PasswordResetPage {
+  component: import { PasswordResetPage } from "@src/auth/PasswordResetPage",
+}
+
+route EmailVerificationRoute { path: "/email-verification", to: EmailVerificationPage }
+page EmailVerificationPage {
+  component: import { EmailVerificationPage } from "@src/auth/EmailVerificationPage",
+}
+
+// ─── APP ROUTES ─────────────────────────────
+
+route DashboardRoute { path: "/", to: DashboardPage }
+page DashboardPage {
+  authRequired: true,
+  component: import { DashboardPage } from "@src/pages/DashboardPage"
+}
+
+route PlantsRoute { path: "/plants", to: PlantsPage }
+page PlantsPage {
+  authRequired: true,
+  component: import { PlantsPage } from "@src/pages/PlantsPage"
+}
+
+route PlantDetailRoute { path: "/plants/:plantId", to: PlantDetailPage }
+page PlantDetailPage {
+  authRequired: true,
+  component: import { PlantDetailPage } from "@src/pages/PlantDetailPage"
+}
+
+route GardenRoute { path: "/garden", to: GardenPage }
+page GardenPage {
+  authRequired: true,
+  component: import { GardenPage } from "@src/pages/GardenPage"
+}
+
+route BedDetailRoute { path: "/garden/bed/:bedId", to: BedDetailPage }
+page BedDetailPage {
+  authRequired: true,
+  component: import { BedDetailPage } from "@src/pages/BedDetailPage"
+}
+
+route CalendarRoute { path: "/calendar", to: CalendarPage }
+page CalendarPage {
+  authRequired: true,
+  component: import { CalendarPage } from "@src/pages/CalendarPage"
+}
+
+route TasksRoute { path: "/tasks", to: TasksPage }
+page TasksPage {
+  authRequired: true,
+  component: import { TasksPage } from "@src/pages/TasksPage"
+}
+
+route SettingsRoute { path: "/settings", to: SettingsPage }
+page SettingsPage {
+  authRequired: true,
+  component: import { SettingsPage } from "@src/pages/SettingsPage"
+}
+
+// ─── PLANT QUERIES & ACTIONS ────────────────
+
+query getPlants {
+  fn: import { getPlants } from "@src/plants/queries",
+  entities: [Plant, PropertyMember]
+}
+
+query getPlantById {
+  fn: import { getPlantById } from "@src/plants/queries",
+  entities: [Plant, CompanionPlant]
+}
+
+action createPlant {
+  fn: import { createPlant } from "@src/plants/actions",
+  entities: [Plant]
+}
+
+action updatePlant {
+  fn: import { updatePlant } from "@src/plants/actions",
+  entities: [Plant]
+}
+
+// ─── PROPERTY QUERIES & ACTIONS ─────────────
+
+query getProperties {
+  fn: import { getProperties } from "@src/property/queries",
+  entities: [Property, PropertyMember]
+}
+
+query getPropertyById {
+  fn: import { getPropertyById } from "@src/property/queries",
+  entities: [Property, PropertyMember, PropertyZone]
+}
+
+action createProperty {
+  fn: import { createProperty } from "@src/property/actions",
+  entities: [Property, PropertyMember]
+}
+
+action updateProperty {
+  fn: import { updateProperty } from "@src/property/actions",
+  entities: [Property, PropertyMember]
+}
+
+// ─── ZONE & BED QUERIES & ACTIONS ───────────
+
+query getZones {
+  fn: import { getZones } from "@src/garden/queries",
+  entities: [PropertyZone, GardenBed, PropertyMember]
+}
+
+query getBedById {
+  fn: import { getBedById } from "@src/garden/queries",
+  entities: [GardenBed, BedSquare, Planting, Plant, PropertyMember]
+}
+
+action createZone {
+  fn: import { createZone } from "@src/garden/actions",
+  entities: [PropertyZone, PropertyMember]
+}
+
+action createBed {
+  fn: import { createBed } from "@src/garden/actions",
+  entities: [GardenBed, PropertyZone, PropertyMember]
+}
+
+action saveBedSquares {
+  fn: import { saveBedSquares } from "@src/garden/actions",
+  entities: [GardenBed, BedSquare, Planting, Plant, PropertyMember]
+}
+
+// ─── CALENDAR QUERIES & ACTIONS ─────────────
+
+query getCalendarEvents {
+  fn: import { getCalendarEvents } from "@src/calendar/queries",
+  entities: [CalendarEvent, PropertyMember]
+}
+
+action generateCalendar {
+  fn: import { generateCalendar } from "@src/calendar/actions",
+  entities: [CalendarEvent, Plant, Property, PropertyMember]
+}
+
+// ─── TASK QUERIES & ACTIONS ─────────────────
+
+query getTasks {
+  fn: import { getTasks } from "@src/tasks/queries",
+  entities: [Task, PropertyMember]
+}
+
+action createTask {
+  fn: import { createTask } from "@src/tasks/actions",
+  entities: [Task, PropertyMember]
+}
+
+action updateTask {
+  fn: import { updateTask } from "@src/tasks/actions",
+  entities: [Task]
+}
+
+// ─── PHOTO ACTIONS ──────────────────────────
+
+query getPhotoUrl {
+  fn: import { getPhotoUrl } from "@src/photos/queries",
+  entities: [Photo]
+}
+
+action getUploadUrl {
+  fn: import { getUploadUrl } from "@src/photos/actions",
+  entities: [Photo, PropertyMember]
+}
+
+// ─── JOBS ───────────────────────────────────
+
+job generateDailyTasks {
+  executor: PgBoss,
+  perform: {
+    fn: import { generateDailyTasks } from "@src/jobs/dailyTasks"
+  },
+  schedule: {
+    cron: "0 6 * * *"
+  },
+  entities: [Task, CalendarEvent, Property, PropertyMember]
+}
