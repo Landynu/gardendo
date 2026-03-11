@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { PlantPalette } from "../components/PlantPalette";
+import { getActiveCells, type BedShape } from "../lib/bedShapes";
 
 const SEASONS = ["SPRING", "SUMMER", "FALL"] as const;
 
@@ -95,6 +96,7 @@ export function BedDetailPage() {
   }
 
   function handleCellClick(row: number, col: number) {
+    if (!activeCells.has(`${row}-${col}`)) return;
     const key = `${row}-${col}`;
     const current = localSquares.get(key);
 
@@ -128,6 +130,7 @@ export function BedDetailPage() {
       const squares: { row: number; col: number; plantId: string | null }[] =
         [];
       for (const [key, plant] of localSquares) {
+        if (!activeCells.has(key)) continue;
         const [r, c] = key.split("-").map(Number);
         squares.push({ row: r, col: c, plantId: plant.id });
       }
@@ -183,6 +186,12 @@ export function BedDetailPage() {
   const rows = bed.lengthFt;
   const cols = bed.widthFt;
 
+  // Compute active cells based on bed shape
+  const activeCells = useMemo(
+    () => getActiveCells(cols, rows, (bed.shape ?? "RECTANGLE") as BedShape),
+    [cols, rows, bed.shape],
+  );
+
   // Derive legend from localSquares
   const legendPlants = getUniquePlants(localSquares);
 
@@ -203,6 +212,9 @@ export function BedDetailPage() {
             <h1 className="page-title">{bed.name}</h1>
             <p className="mt-1 text-sm text-neutral-500">
               {bed.widthFt} x {bed.lengthFt} ft
+              {bed.shape && bed.shape !== "RECTANGLE" && ` \u00B7 ${bed.shape.charAt(0) + bed.shape.slice(1).toLowerCase()}`}
+              {bed.bedType === "RAISED" && bed.heightIn && ` \u00B7 ${bed.heightIn}" raised`}
+              {bed.bedType === "CONTAINER" && bed.heightIn && ` \u00B7 ${bed.heightIn}" container`}
               {bed.soilType && ` \u00B7 ${bed.soilType}`}
               {bed.zone && ` \u00B7 ${bed.zone.name}`}
             </p>
@@ -362,6 +374,17 @@ export function BedDetailPage() {
                   {/* Cells */}
                   {Array.from({ length: cols }, (_, c) => {
                     const key = `${r}-${c}`;
+                    const isActive = activeCells.has(key);
+
+                    if (!isActive) {
+                      return (
+                        <div
+                          key={c}
+                          className="aspect-square rounded-md bg-neutral-100/50"
+                        />
+                      );
+                    }
+
                     const plant = localSquares.get(key) ?? null;
 
                     // Check adjacent cells for companion relationships

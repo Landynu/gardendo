@@ -6,6 +6,7 @@ import {
 import { type PropertyZone, type GardenBed, type BedSquare } from "wasp/entities"
 import { HttpError } from "wasp/server"
 import { requirePropertyMember } from "../lib/auth"
+import { getActiveCells, type BedShape } from "../lib/bedShapes"
 
 // ─── createZone ─────────────────────────────
 
@@ -43,6 +44,9 @@ type CreateBedArgs = {
   name: string
   widthFt: number
   lengthFt: number
+  shape?: string
+  bedType?: string
+  heightIn?: number
   soilType?: string
   notes?: string
 }
@@ -65,6 +69,9 @@ export const createBed: CreateBed<CreateBedArgs, GardenBed> = async (
       name: args.name,
       widthFt: args.widthFt,
       lengthFt: args.lengthFt,
+      shape: (args.shape as any) ?? undefined,
+      bedType: (args.bedType as any) ?? undefined,
+      heightIn: args.heightIn ?? undefined,
       soilType: args.soilType,
       notes: args.notes,
       zoneId: args.zoneId,
@@ -99,6 +106,10 @@ export const saveBedSquares: SaveBedSquares<SaveBedSquaresArgs, BedSquare[]> =
     if (!bed) throw new HttpError(404, "Bed not found")
 
     await requirePropertyMember(context, bed.zone.propertyId)
+
+    // Filter squares to only active cells for the bed's shape
+    const activeCells = getActiveCells(bed.widthFt, bed.lengthFt, bed.shape as BedShape)
+    args.squares = args.squares.filter(sq => activeCells.has(`${sq.row}-${sq.col}`))
 
     // Delete existing squares for this bed/year/season
     await context.entities.BedSquare.deleteMany({

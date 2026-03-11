@@ -92,11 +92,25 @@ enum PermacultureZone {
 
 // ─── GARDEN BEDS & PLANTINGS ────────────────
 
+enum BedShape {
+  RECTANGLE
+  OVAL
+}
+
+enum BedType {
+  RAISED
+  IN_GROUND
+  CONTAINER
+}
+
 model GardenBed {
   id       String @id @default(uuid())
   name     String
   widthFt  Int
   lengthFt Int
+  shape    BedShape @default(RECTANGLE)
+  bedType  BedType  @default(IN_GROUND)
+  heightIn Int?
   soilType String?
   notes    String?
 

@@ -198,6 +198,9 @@ export function GardenPage() {
                           </p>
                           <p className="text-xs text-neutral-400">
                             {bed.widthFt} x {bed.lengthFt} ft
+                            {bed.shape !== "RECTANGLE" && ` \u00B7 ${bed.shape.charAt(0) + bed.shape.slice(1).toLowerCase()}`}
+                            {bed.bedType === "RAISED" && " \u00B7 Raised"}
+                            {bed.bedType === "CONTAINER" && " \u00B7 Container"}
                             {bed.soilType && ` \u00B7 ${bed.soilType}`}
                           </p>
                         </div>
@@ -344,6 +347,9 @@ function CreateBedForm({
     name: "",
     widthFt: "4",
     lengthFt: "8",
+    shape: "RECTANGLE",
+    bedType: "IN_GROUND",
+    heightIn: "",
     soilType: "",
     notes: "",
   })
@@ -357,6 +363,9 @@ function CreateBedForm({
         name: form.name,
         widthFt: parseInt(form.widthFt),
         lengthFt: parseInt(form.lengthFt),
+        shape: form.shape,
+        bedType: form.bedType,
+        heightIn: form.heightIn ? parseInt(form.heightIn) : undefined,
         soilType: form.soilType || undefined,
         notes: form.notes || undefined,
       })
@@ -418,7 +427,46 @@ function CreateBedForm({
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             />
           </div>
-          <div className="col-span-2">
+          <div>
+            <label className="label mb-1 block">Shape</label>
+            <select
+              value={form.shape}
+              onChange={(e) => setForm({ ...form, shape: e.target.value })}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            >
+              <option value="RECTANGLE">Rectangle</option>
+              <option value="OVAL">Oval</option>
+            </select>
+          </div>
+          <div>
+            <label className="label mb-1 block">Bed Type</label>
+            <select
+              value={form.bedType}
+              onChange={(e) => setForm({ ...form, bedType: e.target.value })}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            >
+              <option value="IN_GROUND">In-Ground</option>
+              <option value="RAISED">Raised</option>
+              <option value="CONTAINER">Container</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {(form.bedType === "RAISED" || form.bedType === "CONTAINER") && (
+            <div>
+              <label className="label mb-1 block">Height (inches)</label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={form.heightIn}
+                onChange={(e) => setForm({ ...form, heightIn: e.target.value })}
+                placeholder="e.g. 17"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+          )}
+          <div className={form.bedType === "RAISED" || form.bedType === "CONTAINER" ? "col-span-1 sm:col-span-3" : "col-span-2 sm:col-span-4"}>
             <label className="label mb-1 block">Soil Type</label>
             <input
               type="text"

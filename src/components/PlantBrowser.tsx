@@ -60,14 +60,13 @@ export function PlantBrowser({ open, onClose }: Props) {
   if (!open) return null
 
   return (
-    <dialog
-      open
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[5vh]"
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 pt-[10vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6">
+      <div className="card mx-4 mb-8 max-h-[80vh] w-full max-w-2xl overflow-y-auto p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary-600" />
@@ -184,6 +183,6 @@ export function PlantBrowser({ open, onClose }: Props) {
           </div>
         ) : null}
       </div>
-    </dialog>
+    </div>
   )
 }
