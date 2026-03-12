@@ -8,17 +8,13 @@ export function LoginPage() {
       <LoginForm />
       <br />
       <span className="text-sm font-medium text-neutral-900">
-        Don&apos;t have an account yet?{" "}
-        <Link to="/signup" className="font-semibold underline">
-          Go to signup
-        </Link>
-        .
+        Sign in with your username and password.
       </span>
       <br />
       <span className="text-sm font-medium text-neutral-900">
-        Forgot your password?{" "}
-        <Link to="/request-password-reset" className="font-semibold underline">
-          Reset it
+        Don&apos;t have an account yet?{" "}
+        <Link to="/signup" className="font-semibold underline">
+          Go to signup
         </Link>
         .
       </span>

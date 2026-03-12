@@ -11,7 +11,9 @@ app gardendo {
   auth: {
     userEntity: User,
     methods: {
-      usernameAndPassword: {},
+      usernameAndPassword: {
+        userSignupFields: import { userSignupFields } from "@src/auth/userSignupFields",
+      },
       // TODO: Switch to Postmark email auth when ready
       // email: {
       //   fromField: {
