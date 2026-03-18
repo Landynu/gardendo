@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { type Plant } from "wasp/entities";
+import {
+  useQuery,
+  getAiChatSession,
+  saveAiChatSession,
+  saveDesignHistory,
+} from "wasp/client/operations";
 import {
   Sparkles,
   Send,
@@ -57,10 +64,43 @@ export function AiDesigner({
     explanation: string;
     successionNotes: SuccessionNote[];
   } | null>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load previous chat session
+  const { data: chatSession } = useQuery(getAiChatSession, {
+    bedId: bed.id,
+    year,
+    season,
+  });
+
+  useEffect(() => {
+    if (chatSession && !sessionLoaded) {
+      try {
+        const loaded = JSON.parse(chatSession.messagesJson) as Message[];
+        if (loaded.length > 0) {
+          setMessages(loaded);
+          // Restore latest layout from loaded messages
+          const lastWithLayout = [...loaded]
+            .reverse()
+            .find((m) => m.layout);
+          if (lastWithLayout?.layout) {
+            setLatestLayout({
+              layout: lastWithLayout.layout,
+              explanation: lastWithLayout.explanation ?? "",
+              successionNotes: lastWithLayout.successionNotes ?? [],
+            });
+          }
+        }
+      } catch {
+        // Ignore malformed JSON
+      }
+      setSessionLoaded(true);
+    }
+  }, [chatSession, sessionLoaded]);
 
   // Plant lookup map
   const plantLookup = useRef<Record<string, Plant>>({});
@@ -90,6 +130,7 @@ export function AiDesigner({
       const updatedMessages = [...messages, newUserMsg];
       setMessages(updatedMessages);
       setInput("");
+      if (inputRef.current) inputRef.current.style.height = "auto";
       setIsStreaming(true);
 
       // Add empty assistant message for streaming
@@ -150,6 +191,16 @@ export function AiDesigner({
         },
         onDone: () => {
           setIsStreaming(false);
+          // Persist chat session after each AI response
+          setMessages((current) => {
+            saveAiChatSession({
+              bedId: bed.id,
+              year,
+              season,
+              messagesJson: JSON.stringify(current),
+            }).catch(console.error);
+            return current;
+          });
         },
       });
 
@@ -169,6 +220,18 @@ export function AiDesigner({
       }
     }
 
+    // Save design history with AI explanation
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    saveDesignHistory({
+      bedId: bed.id,
+      year,
+      season,
+      layoutJson: JSON.stringify(latestLayout.layout),
+      prompt: lastUserMsg?.content ?? "",
+      explanation: latestLayout.explanation,
+      successionNotes: JSON.stringify(latestLayout.successionNotes),
+    }).catch(console.error);
+
     onAcceptLayout(squares);
     onClose();
   }
@@ -180,6 +243,13 @@ export function AiDesigner({
     setIsStreaming(false);
     setInput("");
     inputRef.current?.focus();
+    // Clear saved session
+    saveAiChatSession({
+      bedId: bed.id,
+      year,
+      season,
+      messagesJson: "[]",
+    }).catch(console.error);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -265,7 +335,9 @@ export function AiDesigner({
                 {msg.role === "assistant" ? (
                   <div className="space-y-2">
                     {msg.content && (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                      <div className="prose-chat">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     )}
 
                     {/* Layout preview */}
@@ -366,15 +438,20 @@ export function AiDesigner({
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                const el = e.target;
+                el.style.height = "auto";
+                el.style.height = Math.min(el.scrollHeight, 160) + "px";
+              }}
               onKeyDown={handleKeyDown}
               placeholder={
                 messages.length === 0
                   ? "What would you like to grow?"
                   : "Refine your design..."
               }
-              rows={1}
-              className="max-h-24 min-h-[2.5rem] flex-1 resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              rows={2}
+              className="max-h-40 min-h-[3.5rem] flex-1 resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
             <button
               onClick={() => sendMessage(input)}

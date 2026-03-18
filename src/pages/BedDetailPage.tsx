@@ -538,12 +538,17 @@ export function BedDetailPage() {
                       >
                         {plant ? (
                           <>
-                            <span className="text-xs leading-none sm:text-sm">
-                              {plant.name.slice(0, 2).toUpperCase()}
+                            <span className="text-[10px] leading-tight sm:text-xs font-medium text-center truncate w-full px-0.5">
+                              {plant.name}
                             </span>
+                            {plant.variety && (
+                              <span className="text-[8px] leading-none opacity-75 truncate w-full text-center px-0.5">
+                                {plant.variety}
+                              </span>
+                            )}
                             {plant.plantsPerSqFt && (
-                              <span className="mt-0.5 text-[10px] leading-none opacity-75">
-                                {plant.plantsPerSqFt}
+                              <span className="text-[8px] leading-none opacity-60">
+                                {plant.plantsPerSqFt}/ft²
                               </span>
                             )}
                             {/* Companion indicator dots */}

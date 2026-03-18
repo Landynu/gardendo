@@ -1,3 +1,6 @@
+import { config } from "wasp/client";
+import { getSessionId } from "wasp/client/api";
+
 export type LayoutCell = {
   row: number;
   col: number;
@@ -39,10 +42,17 @@ export async function streamAiDesign(opts: {
   const controller = new AbortController();
 
   try {
-    const response = await fetch("/api/ai/design-bed", {
+    const sessionId = getSessionId();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (sessionId) {
+      headers["Authorization"] = `Bearer ${sessionId}`;
+    }
+
+    const response = await fetch(`${config.apiUrl}/api/ai/design-bed`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers,
       signal: controller.signal,
       body: JSON.stringify({
         bedId: opts.bedId,

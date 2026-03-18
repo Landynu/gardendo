@@ -66,16 +66,32 @@ export function AiGridPreview({
               return (
                 <div
                   key={c}
-                  className="flex aspect-square items-center justify-center rounded-sm border text-[10px] font-bold text-white"
+                  className="flex aspect-square flex-col items-center justify-center rounded-sm border text-white overflow-hidden px-0.5"
                   style={{
                     backgroundColor: plant
                       ? (plant.sqftColor ?? "#22c55e")
                       : undefined,
                     borderColor: plant ? "rgba(255,255,255,0.3)" : "#e5e7eb",
                   }}
-                  title={plant ? `${plant.name}${plant.variety ? ` (${plant.variety})` : ""}` : "Empty"}
+                  title={plant ? `${plant.name}${plant.variety ? ` (${plant.variety})` : ""}${plant.plantsPerSqFt ? ` — ${plant.plantsPerSqFt}/ft²` : ""}` : "Empty"}
                 >
-                  {plant ? plant.name.slice(0, 2).toUpperCase() : ""}
+                  {plant ? (
+                    <>
+                      <span className="text-[8px] leading-tight font-bold truncate w-full text-center">
+                        {plant.name}
+                      </span>
+                      {plant.variety && (
+                        <span className="text-[7px] leading-tight opacity-75 truncate w-full text-center">
+                          {plant.variety}
+                        </span>
+                      )}
+                      {plant.plantsPerSqFt && (
+                        <span className="text-[7px] leading-none opacity-60">
+                          {plant.plantsPerSqFt}/ft²
+                        </span>
+                      )}
+                    </>
+                  ) : ""}
                 </div>
               );
             })}

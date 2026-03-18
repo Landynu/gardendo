@@ -143,20 +143,36 @@ model GardenBed {
   plantings      Planting[]
   photos         Photo[]
   designHistory  BedDesignHistory[]
+  chatSessions   AiChatSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model BedDesignHistory {
-  id         String    @id @default(uuid())
-  bed        GardenBed @relation(fields: [bedId], references: [id])
-  bedId      String
-  year       Int
-  season     Season    @default(SPRING)
-  layoutJson String    // JSON: [{row, col, plantId}]
-  prompt     String    // User prompt that triggered this
-  acceptedAt DateTime  @default(now())
+  id              String    @id @default(uuid())
+  bed             GardenBed @relation(fields: [bedId], references: [id])
+  bedId           String
+  year            Int
+  season          Season    @default(SPRING)
+  layoutJson      String    // JSON: [{row, col, plantId}]
+  prompt          String    // User prompt that triggered this
+  explanation     String?   // AI's design rationale
+  successionNotes String?   // JSON: [{cells, timing, plantId}]
+  acceptedAt      DateTime  @default(now())
+}
+
+model AiChatSession {
+  id           String    @id @default(uuid())
+  bed          GardenBed @relation(fields: [bedId], references: [id])
+  bedId        String
+  year         Int
+  season       Season    @default(SPRING)
+  messagesJson String    // JSON: [{role, content, layout?, explanation?, successionNotes?}]
+  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+
+  @@unique([bedId, year, season])
 }
 
 model BedSquare {

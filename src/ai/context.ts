@@ -40,7 +40,7 @@ export async function buildBedDesignContext(
   season: string,
 ): Promise<{ contextText: string; plantLookup: Record<string, PlantRow> }> {
   // Fetch all data in parallel
-  const [property, bed, allPlants, companions, plantedThisYear] =
+  const [property, bed, allPlants, companions, plantedThisYear, currentBedSquares] =
     await Promise.all([
       entities.Property.findUnique({ where: { id: propertyId } }),
       entities.GardenBed.findUnique({
@@ -71,6 +71,21 @@ export async function buildBedDesignContext(
             },
           },
           bed: { select: { id: true, name: true } },
+        },
+      }),
+      // What's already placed in THIS bed
+      entities.BedSquare.findMany({
+        where: {
+          bedId,
+          year,
+          season: season as any,
+        },
+        include: {
+          planting: {
+            include: {
+              plant: { select: { id: true, name: true, variety: true } },
+            },
+          },
         },
       }),
     ]);
@@ -128,6 +143,19 @@ ${property.latitude ? `- Location: ${property.latitude}°N, ${property.longitude
 - Type: ${bed.bedType ?? "IN_GROUND"}${bed.heightIn ? ` (${bed.heightIn}" tall)` : ""}
 ${bed.soilType ? `- Soil: ${bed.soilType}` : ""}
 ${bed.notes ? `- Notes: ${bed.notes}` : ""}`);
+
+  // 2b. Current bed state (what user has already placed)
+  const placedSquares = currentBedSquares.filter((sq: any) => sq.planting?.plant);
+  if (placedSquares.length > 0) {
+    const placedLines = placedSquares.map((sq: any) => {
+      const p = sq.planting.plant;
+      const name = p.variety ? `${p.name} (${p.variety})` : p.name;
+      return `- Row ${sq.row}, Col ${sq.col}: ${name} [${p.id}]`;
+    });
+    sections.push(`## Current Bed State (already placed by user)
+The user has already placed these plants in this bed. Treat these as fixed unless the user asks to change them. Build your design around them.
+${placedLines.join("\n")}`);
+  }
 
   // 3. Current date context
   const weeksToFrost = differenceInWeeks(firstFrostDate, today);

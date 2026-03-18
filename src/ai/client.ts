@@ -6,7 +6,7 @@ export type AiProvider = "anthropic" | "openrouter";
 const PROVIDER_CONFIG: Record<AiProvider, { baseURL?: string }> = {
   anthropic: {},
   openrouter: {
-    baseURL: "https://openrouter.ai/api/v1",
+    baseURL: "https://openrouter.ai/api",
   },
 };
 

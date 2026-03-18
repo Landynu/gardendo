@@ -4,7 +4,7 @@ app gardendo {
   },
   title: "GardenDo",
   head: [
-    "<link rel='icon' href='/favicon.ico' />",
+    "<link rel='icon' type='image/svg+xml' href='/favicon.svg' />",
     "<meta name='viewport' content='width=device-width, initial-scale=1.0' />",
     "<meta name='description' content='Permaculture property management' />"
   ],
@@ -318,6 +318,11 @@ action setPlantDisplayPhoto {
 
 // ─── AI ────────────────────────────────────
 
+apiNamespace aiNamespace {
+  middlewareConfigFn: import { aiMiddlewareConfig } from "@src/ai/middleware",
+  path: "/api/ai"
+}
+
 api aiDesignBed {
   fn: import { aiDesignBed } from "@src/ai/designApi",
   httpRoute: (POST, "/api/ai/design-bed"),
@@ -329,6 +334,21 @@ api aiDesignBed {
 action saveAiApiKey {
   fn: import { saveAiApiKey } from "@src/ai/actions",
   entities: [User]
+}
+
+action saveDesignHistory {
+  fn: import { saveDesignHistory } from "@src/garden/aiChat",
+  entities: [BedDesignHistory, GardenBed, PropertyZone, PropertyMember]
+}
+
+action saveAiChatSession {
+  fn: import { saveAiChatSession } from "@src/garden/aiChat",
+  entities: [AiChatSession, GardenBed, PropertyZone, PropertyMember]
+}
+
+query getAiChatSession {
+  fn: import { getAiChatSession } from "@src/garden/aiChat",
+  entities: [AiChatSession, GardenBed, PropertyZone, PropertyMember]
 }
 
 query getAiKeyStatus {

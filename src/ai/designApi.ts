@@ -64,20 +64,43 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
   const basePrompt = property?.aiSystemPrompt || DEFAULT_SYSTEM_PROMPT;
   const systemPrompt = `${basePrompt}\n\n---\n\n# Garden Data\n\n${contextText}`;
 
+  // Debug: log full request to server console
+  console.log("\n=== AI DESIGN REQUEST ===");
+  console.log("System prompt length:", systemPrompt.length);
+  console.log("System prompt:\n", systemPrompt);
+  console.log("User messages:", JSON.stringify(messages, null, 2));
+  console.log("=== END REQUEST ===\n");
+
   // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  let ended = false;
+  const safeSend = (data: string) => {
+    if (!ended && !res.writableEnded) {
+      res.write(data);
+    }
+  };
+  const safeEnd = () => {
+    if (!ended && !res.writableEnded) {
+      ended = true;
+      res.end();
+    }
+  };
+
   try {
-    const anthropic = getAnthropicClient(
-      user.aiApiKey,
-      (user.aiProvider ?? "anthropic") as AiProvider,
-    );
+    const provider = (user.aiProvider ?? "anthropic") as AiProvider;
+    const anthropic = getAnthropicClient(user.aiApiKey, provider);
+
+    const model =
+      provider === "openrouter"
+        ? "anthropic/claude-sonnet-4-20250514"
+        : "claude-sonnet-4-20250514";
 
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-20250514",
+      model,
       max_tokens: 4096,
       system: systemPrompt,
       tools: [GENERATE_LAYOUT_TOOL],
@@ -87,21 +110,11 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
       })),
     });
 
-    // Track tool use input accumulation
-    let currentToolInput = "";
-    let inToolUse = false;
-
     stream.on("text", (text: string) => {
-      res.write(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`);
-    });
-
-    stream.on("inputJson", (_delta: string, snapshot: unknown) => {
-      inToolUse = true;
-      currentToolInput = typeof snapshot === "string" ? snapshot : JSON.stringify(snapshot);
+      safeSend(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`);
     });
 
     stream.on("message", (message: any) => {
-      // Check for tool use in the final message
       for (const block of message.content) {
         if (block.type === "tool_use" && block.name === "generate_bed_layout") {
           const input = block.input as {
@@ -114,7 +127,7 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
             }[];
           };
 
-          res.write(
+          safeSend(
             `data: ${JSON.stringify({
               type: "layout",
               layout: input.layout,
@@ -131,24 +144,25 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
         err?.status === 401
           ? "Invalid API key. Please check your Anthropic API key in Settings."
           : err?.message || "AI request failed";
-      res.write(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-      res.end();
+      safeSend(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
+      safeSend(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      safeEnd();
     });
 
     stream.on("end", () => {
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-      res.end();
+      safeSend(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      safeEnd();
     });
 
     // Handle client disconnect
     req.on("close", () => {
+      ended = true;
       stream.abort();
     });
   } catch (err: any) {
     const message = err?.message || "Failed to connect to AI";
-    res.write(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
-    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-    res.end();
+    safeSend(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
+    safeSend(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+    safeEnd();
   }
 };
