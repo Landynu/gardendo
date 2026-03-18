@@ -17,7 +17,7 @@ import {
   Heart,
   ShieldAlert,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { PlantPalette } from "../components/PlantPalette";
 import { getActiveCells, type BedShape } from "../lib/bedShapes";
 
@@ -60,8 +60,10 @@ export function BedDetailPage() {
   }, [companionships]);
 
   // Sync server data → localSquares when bed/year/season changes
+  // Skip if there are unsaved local edits (e.g. drag-and-drop placement)
+  // so that background query refetches don't wipe them out.
   useEffect(() => {
-    if (!bed) return;
+    if (!bed || isDirty) return;
     const map = new Map<string, Plant>();
     for (const sq of bed.squares ?? []) {
       if (sq.year === year && sq.season === season && sq.planting?.plant) {
@@ -69,8 +71,7 @@ export function BedDetailPage() {
       }
     }
     setLocalSquares(map);
-    setIsDirty(false);
-  }, [bed, year, season]);
+  }, [bed, year, season, isDirty]);
 
   // Unsaved changes guard
   useEffect(() => {
@@ -158,6 +159,55 @@ export function BedDetailPage() {
     setSelectedPlant(null);
   }
 
+  const rows = bed?.lengthFt ?? 0;
+  const cols = bed?.widthFt ?? 0;
+
+  // Compute active cells based on bed shape
+  const activeCells = useMemo(
+    () => getActiveCells(cols, rows, (bed?.shape ?? "RECTANGLE") as BedShape),
+    [cols, rows, bed?.shape],
+  );
+
+  // Derive legend from localSquares
+  const legendPlants = getUniquePlants(localSquares);
+
+  // Set of plant IDs currently in this bed (for "In bed" tag in palette)
+  const plantedPlantIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const plant of localSquares.values()) {
+      ids.add(plant.id);
+    }
+    return ids;
+  }, [localSquares]);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>, row: number, col: number) => {
+      e.preventDefault();
+      const key = `${row}-${col}`;
+      if (!activeCells.has(key)) return;
+
+      try {
+        const plant = JSON.parse(
+          e.dataTransfer.getData("application/json"),
+        ) as Plant;
+        setLocalSquares((prev) => {
+          const next = new Map(prev);
+          next.set(key, plant);
+          return next;
+        });
+        setIsDirty(true);
+      } catch {
+        // invalid drag data — ignore
+      }
+    },
+    [activeCells],
+  );
+
   if (isLoading) {
     return (
       <div className="page-container">
@@ -182,18 +232,6 @@ export function BedDetailPage() {
       </div>
     );
   }
-
-  const rows = bed.lengthFt;
-  const cols = bed.widthFt;
-
-  // Compute active cells based on bed shape
-  const activeCells = useMemo(
-    () => getActiveCells(cols, rows, (bed.shape ?? "RECTANGLE") as BedShape),
-    [cols, rows, bed.shape],
-  );
-
-  // Derive legend from localSquares
-  const legendPlants = getUniquePlants(localSquares);
 
   return (
     <div className="page-container">
@@ -450,6 +488,8 @@ export function BedDetailPage() {
                       <div
                         key={c}
                         onClick={() => handleCellClick(r, c)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, r, c)}
                         className={`group relative flex aspect-square flex-col items-center justify-center rounded-md border-2 text-xs font-bold transition-all ${
                           plant
                             ? `cursor-pointer text-white shadow-sm hover:scale-105 hover:shadow-md ${
@@ -626,6 +666,7 @@ export function BedDetailPage() {
           onClose={() => setPaletteOpen(false)}
           bedPlants={legendPlants}
           companionMap={companionMap}
+          plantedPlantIds={plantedPlantIds}
         />
       </div>
     </div>

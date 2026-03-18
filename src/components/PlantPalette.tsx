@@ -1,7 +1,9 @@
 import { useQuery, getPlants } from "wasp/client/operations";
 import { type Plant } from "wasp/entities";
-import { Search, Eraser, Leaf, X, Heart, ShieldAlert } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { Search, Eraser, Leaf, X, Heart, ShieldAlert, GripVertical } from "lucide-react";
+import { useState, useEffect, useMemo, type DragEvent } from "react";
+
+type PlantWithImage = Plant & { displayImageUrl?: string };
 
 const CATEGORIES = [
   "ALL",
@@ -30,6 +32,7 @@ type PlantPaletteProps = {
   onClose: () => void;
   bedPlants?: Plant[];
   companionMap?: Map<string, string>;
+  plantedPlantIds?: Set<string>;
 };
 
 export function PlantPalette({
@@ -41,6 +44,7 @@ export function PlantPalette({
   onClose,
   bedPlants = [],
   companionMap = new Map(),
+  plantedPlantIds = new Set(),
 }: PlantPaletteProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -100,8 +104,14 @@ export function PlantPalette({
     ? relationshipCountsByPlantId.get(selectedPlant.id)
     : null;
 
+  function handleDragStart(e: DragEvent, plant: PlantWithImage) {
+    e.dataTransfer.setData("application/json", JSON.stringify(plant));
+    e.dataTransfer.effectAllowed = "copy";
+    onSelectPlant(plant);
+  }
+
   const content = (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Eraser toggle */}
       <div className="mb-3 flex items-center gap-2">
         <button
@@ -202,7 +212,7 @@ export function PlantPalette({
       )}
 
       {/* Plant list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Leaf className="text-primary-500 h-5 w-5 animate-spin" />
@@ -213,14 +223,17 @@ export function PlantPalette({
           </p>
         ) : (
           <div className="space-y-1">
-            {plants.map((plant) => {
+            {(plants as PlantWithImage[]).map((plant) => {
               const counts = relationshipCountsByPlantId.get(plant.id);
               const hasBeneficial = (counts?.beneficial ?? 0) > 0;
               const hasHarmful = (counts?.harmful ?? 0) > 0;
+              const isInBed = plantedPlantIds.has(plant.id);
 
               return (
                 <button
                   key={plant.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, plant)}
                   onClick={() => {
                     onSelectPlant(
                       selectedPlant?.id === plant.id ? null : plant,
@@ -237,14 +250,28 @@ export function PlantPalette({
                           : "hover:bg-neutral-50"
                   }`}
                 >
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-xs font-bold text-white"
-                    style={{
-                      backgroundColor: plant.sqftColor ?? "#22c55e",
-                    }}
-                  >
-                    {plant.name.slice(0, 2).toUpperCase()}
-                  </div>
+                  {/* Drag handle */}
+                  <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-neutral-300 active:cursor-grabbing" />
+
+                  {/* Plant image or color swatch */}
+                  {plant.displayImageUrl ? (
+                    <img
+                      src={plant.displayImageUrl}
+                      alt={plant.name}
+                      className="h-8 w-8 shrink-0 rounded object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-xs font-bold text-white"
+                      style={{
+                        backgroundColor: plant.sqftColor ?? "#22c55e",
+                      }}
+                    >
+                      {plant.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-neutral-800">
                       {plant.name}
@@ -254,6 +281,11 @@ export function PlantPalette({
                         <p className="truncate text-xs text-neutral-400">
                           {plant.variety}
                         </p>
+                      )}
+                      {isInBed && (
+                        <span className="inline-flex items-center rounded-full bg-primary-100 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">
+                          In bed
+                        </span>
                       )}
                       {hasBeneficial && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">
@@ -275,11 +307,6 @@ export function PlantPalette({
                         {plant.plantsPerSqFt}/ft²
                       </span>
                     )}
-                    {(hasBeneficial || hasHarmful) && (
-                      <span className="text-[11px] text-neutral-400">
-                        In this bed
-                      </span>
-                    )}
                   </div>
                 </button>
               );
@@ -294,8 +321,8 @@ export function PlantPalette({
     <>
       {/* Desktop sidebar */}
       <div className="hidden md:block">
-        <div className="sticky top-6 w-80">
-          <div className="card max-h-[calc(100vh-6rem)] overflow-hidden p-4">
+        <div className="sticky top-6 w-96">
+          <div className="card flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden p-4">
             <h3 className="mb-3 text-sm font-semibold text-neutral-700">
               Plant Palette
             </h3>

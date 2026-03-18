@@ -186,6 +186,25 @@ const tempToZone = (degC?: number): string | undefined => {
 const cmToIn = (cm?: number) =>
   cm ? Math.round((cm / 2.54) * 10) / 10 : undefined;
 
+/** Upsert a PlantFamily from Trefle's family data, returns the family id or undefined */
+async function upsertFamilyFromTrefle(
+  data: any,
+  entities: any,
+): Promise<string | undefined> {
+  const familyName = data.family?.name;
+  if (!familyName) return undefined;
+
+  const family = await entities.PlantFamily.upsert({
+    where: { name: familyName },
+    update: {},
+    create: {
+      name: familyName,
+      commonName: data.family_common_name || data.family?.common_name || null,
+    },
+  });
+  return family.id;
+}
+
 /** Build Trefle enrichment data from a detail API response */
 function mapTrefleDetail(data: any) {
   const growth = data.growth ?? {};
@@ -199,19 +218,33 @@ function mapTrefleDetail(data: any) {
     soilHumidity: growth.soil_humidity ?? undefined,
     soilTexture: growth.soil_texture ?? undefined,
     soilSalinity: growth.soil_salinity ?? undefined,
+    atmosphericHumidity: growth.atmospheric_humidity ?? undefined,
     precipitationMin: growth.minimum_precipitation?.mm ?? undefined,
     precipitationMax: growth.maximum_precipitation?.mm ?? undefined,
+    minRootDepthCm: growth.minimum_root_depth?.cm ?? undefined,
+    maxHeightCm: specs.maximum_height?.cm ?? undefined,
     // Growth timing
     growthMonths: growth.growth_months?.join(",") || undefined,
     bloomMonths: growth.bloom_months?.join(",") || undefined,
     fruitMonths: growth.fruit_months?.join(",") || undefined,
     // Growth characteristics
     growthRate: specs.growth_rate || undefined,
+    ligneousType: specs.ligneous_type || undefined,
+    growthForm: specs.growth_form || undefined,
+    growthHabit: specs.growth_habit || undefined,
+    shapeAndOrientation: specs.shape_and_orientation || undefined,
+    toxicity: specs.toxicity || undefined,
+    // Nitrogen fixation (sync to existing boolean field)
+    ...(specs.nitrogen_fixation ? { isNitrogenFixer: true } : {}),
     // Appearance
     flowerColor: data.flower?.color?.join(",") || undefined,
+    flowerConspicuous: data.flower?.conspicuous ?? undefined,
     foliageColor: data.foliage?.color?.join(",") || undefined,
     foliageTexture: data.foliage?.texture || undefined,
     fruitColor: data.fruit_or_seed?.color?.join(",") || undefined,
+    fruitConspicuous: data.fruit_or_seed?.conspicuous ?? undefined,
+    fruitShape: data.fruit_or_seed?.shape || undefined,
+    seedPersistence: data.fruit_or_seed?.seed_persistence ?? undefined,
     isEvergreen: data.foliage?.leaf_retention === true,
     // Edible details
     edibleParts: data.edible_part?.join(",") || undefined,
@@ -325,6 +358,7 @@ export const importPlant: ImportPlant<
   }
 
   const enrichment = mapTrefleDetail(data);
+  const familyId = await upsertFamilyFromTrefle(data, context.entities);
 
   return context.entities.Plant.create({
     data: {
@@ -343,6 +377,7 @@ export const importPlant: ImportPlant<
       externalSlug: args.slug,
       dataSource: "TREFLE" as any,
       lastSyncedAt: new Date(),
+      ...(familyId ? { familyId } : {}),
       ...enrichment,
     },
   });
@@ -408,6 +443,7 @@ export const enrichPlants: EnrichPlants<void, EnrichResult> = async (
       const detailJson = await detailRes.json();
       const data = detailJson.data ?? {};
       const enrichment = mapTrefleDetail(data);
+      const familyId = await upsertFamilyFromTrefle(data, context.entities);
 
       // Build update — only set fields that have data and aren't already set
       const updateData: any = {
@@ -417,6 +453,7 @@ export const enrichPlants: EnrichPlants<void, EnrichResult> = async (
       };
       if (data.image_url) updateData.imageUrl = data.image_url;
       if (data.edible === true) updateData.isEdible = true;
+      if (familyId) updateData.familyId = familyId;
 
       for (const plant of group) {
         await context.entities.Plant.update({

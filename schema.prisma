@@ -12,6 +12,7 @@ generator client {
 model User {
   id          String @id @default(uuid())
   username    String
+  aiApiKey    String?   // Encrypted Anthropic API key (AES-256-GCM)
 
   memberships PropertyMember[]
   tasks       Task[]
@@ -34,6 +35,7 @@ model Property {
   latitude       Float?
   longitude      Float?
   notes          String?
+  aiSystemPrompt String?   // Custom AI system prompt override
 
   members        PropertyMember[]
   zones          PropertyZone[]
@@ -117,12 +119,24 @@ model GardenBed {
   zone   PropertyZone @relation(fields: [zoneId], references: [id])
   zoneId String
 
-  squares   BedSquare[]
-  plantings Planting[]
-  photos    Photo[]
+  squares        BedSquare[]
+  plantings      Planting[]
+  photos         Photo[]
+  designHistory  BedDesignHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model BedDesignHistory {
+  id         String    @id @default(uuid())
+  bed        GardenBed @relation(fields: [bedId], references: [id])
+  bedId      String
+  year       Int
+  season     Season    @default(SPRING)
+  layoutJson String    // JSON: [{row, col, plantId}]
+  prompt     String    // User prompt that triggered this
+  acceptedAt DateTime  @default(now())
 }
 
 model BedSquare {
@@ -170,6 +184,16 @@ model Planting {
 
 // ─── PLANT DATABASE ─────────────────────────
 
+model PlantFamily {
+  id         String  @id @default(uuid())
+  name       String  @unique   // e.g. "Solanaceae"
+  commonName String?           // e.g. "Nightshade family"
+  plants     Plant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Plant {
   id               String         @id @default(uuid())
   name             String
@@ -179,6 +203,9 @@ model Plant {
   lifecycle        PlantLifecycle
   hardinessZoneMin String?
   hardinessZoneMax String?
+
+  family   PlantFamily? @relation(fields: [familyId], references: [id])
+  familyId String?
 
   sunRequirement    SunRequirement?
   waterNeed         WaterNeed?
@@ -212,14 +239,17 @@ model Plant {
   lastSyncedAt DateTime?
 
   // Soil & environment (from Trefle)
-  phMin            Float?
-  phMax            Float?
-  soilNutriments   Int?     // 0-10 scale
-  soilHumidity     Int?     // 0-10 scale
-  soilTexture      Int?     // 0-10 scale
-  soilSalinity     Int?     // 0-10 scale
-  precipitationMin Int?     // mm/year
-  precipitationMax Int?     // mm/year
+  phMin              Float?
+  phMax              Float?
+  soilNutriments     Int?     // 0-10 scale
+  soilHumidity       Int?     // 0-10 scale
+  soilTexture        Int?     // 0-10 scale
+  soilSalinity       Int?     // 0-10 scale
+  atmosphericHumidity Int?    // 0-10 scale
+  precipitationMin   Int?     // mm/year
+  precipitationMax   Int?     // mm/year
+  minRootDepthCm     Float?   // minimum root depth in cm
+  maxHeightCm        Float?   // maximum height in cm
 
   // Growth timing (comma-separated month abbreviations: "mar,apr,may")
   growthMonths String?
@@ -227,14 +257,23 @@ model Plant {
   fruitMonths  String?
 
   // Growth characteristics
-  growthRate String? // "slow", "moderate", "rapid"
+  growthRate         String?  // "slow", "moderate", "rapid"
+  ligneousType       String?  // "liana", "subshrub", "shrub", "tree", "parasite"
+  growthForm         String?  // landscape growth form
+  growthHabit        String?  // general plant architecture
+  shapeAndOrientation String? // predominant plant shape
+  toxicity           String?  // "none", "low", "medium", "high"
 
   // Appearance
-  flowerColor    String?  // comma-separated: "yellow,white"
-  foliageColor   String?  // comma-separated: "green"
-  foliageTexture String?  // "fine", "medium", "coarse"
-  fruitColor     String?  // comma-separated: "red,orange"
-  isEvergreen    Boolean  @default(false)
+  flowerColor       String?  // comma-separated: "yellow,white"
+  flowerConspicuous Boolean? // whether flowers are showy
+  foliageColor      String?  // comma-separated: "green"
+  foliageTexture    String?  // "fine", "medium", "coarse"
+  fruitColor        String?  // comma-separated: "red,orange"
+  fruitConspicuous  Boolean? // whether fruit is visible
+  fruitShape        String?  // fruit shape
+  seedPersistence   Boolean? // persistent fruit/seed on plant
+  isEvergreen       Boolean  @default(false)
 
   // Edible details
   edibleParts String? // comma-separated: "fruit,leaves,roots"

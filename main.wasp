@@ -41,7 +41,8 @@ app gardendo {
   db: {
     seeds: [
       import { seedPlants } from "@src/seeds/plants",
-      import { seedCompanions } from "@src/seeds/companions"
+      import { seedCompanions } from "@src/seeds/companions",
+      import { seedFamilies } from "@src/seeds/families"
     ]
   }
 }
@@ -133,12 +134,12 @@ page SettingsPage {
 
 query getPlants {
   fn: import { getPlants } from "@src/plants/queries",
-  entities: [Plant, Photo, PropertyMember]
+  entities: [Plant, PlantFamily, Photo, PropertyMember]
 }
 
 query getPlantById {
   fn: import { getPlantById } from "@src/plants/queries",
-  entities: [Plant, CompanionPlant]
+  entities: [Plant, PlantFamily, CompanionPlant]
 }
 
 action createPlant {
@@ -277,12 +278,12 @@ action searchPlants {
 
 action importPlant {
   fn: import { importPlant } from "@src/plants/actions",
-  entities: [Plant]
+  entities: [Plant, PlantFamily]
 }
 
 action enrichPlants {
   fn: import { enrichPlants } from "@src/plants/actions",
-  entities: [Plant]
+  entities: [Plant, PlantFamily]
 }
 
 action setPlantDisplayPhoto {
