@@ -39,7 +39,9 @@ model Property {
   latitude       Float?
   longitude      Float?
   notes          String?
-  aiSystemPrompt String?   // Custom AI system prompt override
+  aiSystemPrompt   String?   // Custom AI system prompt override
+  weatherApiToken  String?   // Encrypted Tempest API token
+  weatherStationId Int?      // Tempest station ID
 
   members        PropertyMember[]
   invitations    PropertyInvitation[]

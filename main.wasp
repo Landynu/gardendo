@@ -448,6 +448,26 @@ query getWeather {
   entities: [Property, PropertyMember]
 }
 
+query getWeatherConfigStatus {
+  fn: import { getWeatherConfigStatus } from "@src/weather/queries",
+  entities: [Property, PropertyMember]
+}
+
+query getTempestStations {
+  fn: import { getTempestStations } from "@src/weather/queries",
+  entities: [Property, PropertyMember]
+}
+
+action saveWeatherConfig {
+  fn: import { saveWeatherConfig } from "@src/weather/actions",
+  entities: [Property, PropertyMember]
+}
+
+action deleteWeatherConfig {
+  fn: import { deleteWeatherConfig } from "@src/weather/actions",
+  entities: [Property, PropertyMember]
+}
+
 // ─── CALENDAR QUERIES & ACTIONS ─────────────
 
 query getCalendarEvents {

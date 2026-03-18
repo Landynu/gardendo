@@ -1,5 +1,6 @@
 import { addWeeks, format, differenceInWeeks, parse, isAfter } from "date-fns";
 import { getActiveCells, type BedShape } from "../lib/bedShapes";
+import { decrypt } from "./crypto";
 
 type PlantRow = {
   id: string;
@@ -507,19 +508,74 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
     sections.push(`## Recent Garden Notes\n${journalLines.join("\n")}`);
   }
 
-  // 12. Current weather
+  // 15. Current weather (Tempest if configured, Open-Meteo as fallback/comparison)
   if (property.latitude && property.longitude) {
     try {
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${property.latitude}&longitude=${property.longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=celsius&timezone=${encodeURIComponent(property.timezone)}&forecast_days=3`;
-      const res = await fetch(weatherUrl);
-      if (res.ok) {
-        const w = await res.json();
-        const frostRisk = w.daily.temperature_2m_min.some((t: number) => t <= 0);
-        sections.push(`## Current Weather
-- Today: ${Math.round(w.current.temperature_2m)}°C
-- 3-day highs: ${w.daily.temperature_2m_max.map((t: number) => Math.round(t) + "°C").join(", ")}
-- 3-day lows: ${w.daily.temperature_2m_min.map((t: number) => Math.round(t) + "°C").join(", ")}
-- Frost risk: ${frostRisk ? "YES — overnight low at or below 0°C" : "No"}`);
+      // Always fetch Open-Meteo for regional baseline
+      const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${property.latitude}&longitude=${property.longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=celsius&timezone=${encodeURIComponent(property.timezone)}&forecast_days=3`;
+      const omRes = await fetch(omUrl);
+      const omData = omRes.ok ? await omRes.json() : null;
+
+      let tempestData: any = null;
+      if (property.weatherApiToken && property.weatherStationId) {
+        try {
+          const token = decrypt(property.weatherApiToken);
+          const tUrl = `https://swd.weatherflow.com/swd/rest/better_forecast?station_id=${property.weatherStationId}&token=${token}&units_temp=c&units_wind=kph&units_pressure=mb&units_precip=mm`;
+          const tRes = await fetch(tUrl);
+          if (tRes.ok) tempestData = await tRes.json();
+        } catch {
+          // Tempest fetch failed — use Open-Meteo only
+        }
+      }
+
+      const weatherLines: string[] = [];
+
+      if (tempestData?.current_conditions) {
+        const cc = tempestData.current_conditions;
+        weatherLines.push(`Source: Tempest weather station (hyperlocal)`);
+        weatherLines.push(`- Temperature: ${Math.round(cc.air_temperature)}°C${cc.feels_like != null ? ` (feels like ${Math.round(cc.feels_like)}°C)` : ""}`);
+        if (omData) {
+          const diff = Math.round(cc.air_temperature) - Math.round(omData.current.temperature_2m);
+          if (Math.abs(diff) >= 2) {
+            const dir = diff > 0 ? "warmer" : "colder";
+            weatherLines.push(`- Regional forecast: ${Math.round(omData.current.temperature_2m)}°C — your property is ${Math.abs(diff)}°C ${dir}`);
+          }
+        }
+        if (cc.relative_humidity != null) weatherLines.push(`- Humidity: ${Math.round(cc.relative_humidity)}%${cc.dew_point != null ? `, Dew point: ${Math.round(cc.dew_point)}°C` : ""}`);
+        if (cc.wind_avg != null) weatherLines.push(`- Wind: ${Math.round(cc.wind_avg)} km/h${cc.wind_gust != null ? `, gusts ${Math.round(cc.wind_gust)} km/h` : ""}`);
+        if (cc.uv != null) weatherLines.push(`- UV: ${cc.uv}${cc.solar_radiation != null ? `, Solar: ${Math.round(cc.solar_radiation)} W/m²` : ""}`);
+        if (cc.precip_accum_local_day != null && cc.precip_accum_local_day > 0) weatherLines.push(`- Precipitation today: ${cc.precip_accum_local_day}mm`);
+
+        const daily = tempestData.forecast?.daily ?? [];
+        const tempestFrost = daily.some((d: any) => d.air_temp_low <= 0);
+        const omFrost = omData?.daily?.temperature_2m_min?.some((t: number) => t <= 0) ?? false;
+
+        if (tempestFrost || omFrost) {
+          const note = tempestFrost && !omFrost
+            ? " (station detects frost risk, regional does not — trust your station)"
+            : !tempestFrost && omFrost
+              ? " (regional predicts frost, station does not — be cautious)"
+              : "";
+          weatherLines.push(`- Frost risk: YES${note}`);
+        } else {
+          weatherLines.push(`- Frost risk: No`);
+        }
+
+        if (daily.length > 0) {
+          weatherLines.push(`- 3-day highs: ${daily.slice(0, 3).map((d: any) => Math.round(d.air_temp_high) + "°C").join(", ")}`);
+          weatherLines.push(`- 3-day lows: ${daily.slice(0, 3).map((d: any) => Math.round(d.air_temp_low) + "°C").join(", ")}`);
+        }
+      } else if (omData) {
+        weatherLines.push(`Source: Open-Meteo (regional)`);
+        weatherLines.push(`- Today: ${Math.round(omData.current.temperature_2m)}°C`);
+        weatherLines.push(`- 3-day highs: ${omData.daily.temperature_2m_max.map((t: number) => Math.round(t) + "°C").join(", ")}`);
+        weatherLines.push(`- 3-day lows: ${omData.daily.temperature_2m_min.map((t: number) => Math.round(t) + "°C").join(", ")}`);
+        const frostRisk = omData.daily.temperature_2m_min.some((t: number) => t <= 0);
+        weatherLines.push(`- Frost risk: ${frostRisk ? "YES — overnight low at or below 0°C" : "No"}`);
+      }
+
+      if (weatherLines.length > 0) {
+        sections.push(`## Current Weather\n${weatherLines.join("\n")}`);
       }
     } catch {
       // Weather fetch failed — skip section

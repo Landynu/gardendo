@@ -10,6 +10,10 @@ import {
   getPendingInvitations,
   inviteToProperty,
   cancelInvitation,
+  getWeatherConfigStatus,
+  getTempestStations,
+  saveWeatherConfig,
+  deleteWeatherConfig,
 } from "wasp/client/operations"
 import {
   Leaf,
@@ -28,6 +32,7 @@ import {
   Bot,
   Mail,
   X,
+  CloudSun,
 } from "lucide-react"
 import { useState, lazy, Suspense } from "react"
 import { DEFAULT_SYSTEM_PROMPT } from "../ai/prompts"
@@ -216,6 +221,9 @@ export function SettingsPage() {
 
           {/* AI System Prompt */}
           <AiSystemPromptCard propertyId={property!.id} currentPrompt={(property as any).aiSystemPrompt} />
+
+          {/* Weather Station */}
+          <WeatherStationCard propertyId={property!.id} />
         </div>
       )}
     </div>
@@ -775,6 +783,171 @@ function Field({
         {required && <span className="text-red-500"> *</span>}
       </label>
       {children}
+    </div>
+  )
+}
+
+function WeatherStationCard({ propertyId }: { propertyId: string }) {
+  const { data: configStatus } = useQuery(getWeatherConfigStatus, { propertyId })
+  const [step, setStep] = useState<"idle" | "token" | "station">("idle")
+  const [token, setToken] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const [stations, setStations] = useState<any[]>([])
+  const [selectedStationId, setSelectedStationId] = useState<number | null>(null)
+  const [loadingStations, setLoadingStations] = useState(false)
+
+  async function handleConnect() {
+    if (!token.trim()) return
+    setSaving(true)
+    setError("")
+    try {
+      // First save the token temporarily so getTempestStations can use it
+      await saveWeatherConfig({ propertyId, apiToken: token.trim(), stationId: 0 })
+      // Then fetch available stations
+      setLoadingStations(true)
+      const stationList = await getTempestStations({ propertyId })
+      setStations(stationList as any[])
+      if ((stationList as any[]).length === 1) {
+        setSelectedStationId((stationList as any[])[0].id)
+      }
+      setStep("station")
+    } catch (err: any) {
+      setError(err.message || "Failed to connect to Tempest")
+      // Clean up the temporary save
+      try { await deleteWeatherConfig({ propertyId }) } catch {}
+    } finally {
+      setSaving(false)
+      setLoadingStations(false)
+    }
+  }
+
+  async function handleSaveStation() {
+    if (!selectedStationId) return
+    setSaving(true)
+    setError("")
+    try {
+      await saveWeatherConfig({ propertyId, apiToken: token.trim(), stationId: selectedStationId })
+      setStep("idle")
+      setToken("")
+      setStations([])
+    } catch (err: any) {
+      setError(err.message || "Failed to save station")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleRemove() {
+    if (!window.confirm("Remove Tempest weather station?")) return
+    try {
+      await deleteWeatherConfig({ propertyId })
+      setStep("idle")
+      setToken("")
+      setStations([])
+      setSelectedStationId(null)
+    } catch (err: any) {
+      setError(err.message || "Failed to remove config")
+    }
+  }
+
+  return (
+    <div className="card p-5">
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+        <CloudSun className="h-5 w-5 text-blue-500" />
+        Weather Station
+      </h2>
+      <p className="mb-4 text-sm text-neutral-500">
+        Connect a Tempest weather station for hyperlocal conditions. Regional data from Open-Meteo is always available as a comparison.
+      </p>
+
+      {configStatus?.hasToken && configStatus.stationId && step === "idle" ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+            <Check className="h-4 w-4" />
+            Tempest station connected (ID: {configStatus.stationId})
+          </div>
+          <button onClick={handleRemove} className="btn-secondary text-red-600 hover:bg-red-50">
+            <Trash2 className="h-4 w-4" />
+            Remove Station
+          </button>
+        </div>
+      ) : step === "station" ? (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-600">
+            Found {stations.length} station{stations.length !== 1 ? "s" : ""}. Select your station:
+          </p>
+          <div className="space-y-2">
+            {stations.map((s: any) => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedStationId(s.id)}
+                className={`w-full rounded-lg border p-3 text-left text-sm transition-colors ${
+                  selectedStationId === s.id
+                    ? "border-primary-500 bg-primary-50 text-primary-700"
+                    : "border-neutral-200 hover:bg-neutral-50"
+                }`}
+              >
+                <span className="font-medium">{s.name}</span>
+                {s.latitude ? (
+                  <span className="ml-2 text-xs text-neutral-400">
+                    ({s.latitude.toFixed(2)}°, {s.longitude.toFixed(2)}°)
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveStation}
+              disabled={saving || !selectedStationId}
+              className="btn-primary"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save Station
+            </button>
+            <button onClick={() => { setStep("idle"); setStations([]); }} className="btn-secondary">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Tempest API token"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          <p className="text-xs text-neutral-400">
+            Generate at tempestwx.com → Settings → Data Authorizations → Create Token
+          </p>
+          <button
+            onClick={handleConnect}
+            disabled={saving || !token.trim()}
+            className="btn-primary"
+          >
+            {saving || loadingStations ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {loadingStations ? "Finding stations..." : "Connecting..."}
+              </>
+            ) : (
+              <>
+                <CloudSun className="h-4 w-4" />
+                Connect
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
     </div>
   )
 }
