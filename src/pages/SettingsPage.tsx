@@ -1,4 +1,13 @@
-import { useQuery, getProperties, createProperty, enrichPlants } from "wasp/client/operations"
+import {
+  useQuery,
+  getProperties,
+  createProperty,
+  enrichPlants,
+  getAiKeyStatus,
+  saveAiApiKey,
+  deleteAiApiKey,
+  updateAiSystemPrompt,
+} from "wasp/client/operations"
 import {
   Leaf,
   Settings,
@@ -9,8 +18,14 @@ import {
   Plus,
   Sparkles,
   Loader2,
+  Key,
+  Check,
+  Trash2,
+  RotateCcw,
+  Bot,
 } from "lucide-react"
 import { useState, lazy, Suspense } from "react"
+import { DEFAULT_SYSTEM_PROMPT } from "../ai/prompts"
 
 const LocationPicker = lazy(() =>
   import("../components/LocationPicker").then((m) => ({
@@ -230,8 +245,196 @@ export function SettingsPage() {
               )}
             </button>
           </div>
+
+          {/* AI API Key */}
+          <AiApiKeyCard />
+
+          {/* AI System Prompt */}
+          <AiSystemPromptCard propertyId={property!.id} currentPrompt={(property as any).aiSystemPrompt} />
         </div>
       )}
+    </div>
+  )
+}
+
+function AiApiKeyCard() {
+  const { data: keyStatus } = useQuery(getAiKeyStatus)
+  const [apiKey, setApiKey] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState("")
+
+  async function handleSave() {
+    if (!apiKey.trim()) return
+    setSaving(true)
+    setError("")
+    setSaved(false)
+    try {
+      await saveAiApiKey({ apiKey: apiKey.trim() })
+      setApiKey("")
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to save key")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("Remove your AI API key?")) return
+    try {
+      await deleteAiApiKey()
+    } catch (err: any) {
+      setError(err.message || "Failed to remove key")
+    }
+  }
+
+  return (
+    <div className="card p-5">
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+        <Key className="h-5 w-5 text-accent-600" />
+        AI API Key
+      </h2>
+      <p className="mb-4 text-sm text-neutral-500">
+        Add your Anthropic API key to enable AI-powered garden design.
+        Your key is encrypted at rest and never exposed after saving.
+      </p>
+
+      {keyStatus?.hasKey ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+            <Check className="h-4 w-4" />
+            API key configured
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleDelete} className="btn-secondary text-red-600 hover:bg-red-50">
+              <Trash2 className="h-4 w-4" />
+              Remove Key
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk-ant-..."
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving || !apiKey.trim()}
+            className="btn-primary"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Key className="h-4 w-4" />
+                Save Key
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {saved && (
+        <div className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+          API key saved successfully.
+        </div>
+      )}
+      {error && (
+        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AiSystemPromptCard({
+  propertyId,
+  currentPrompt,
+}: {
+  propertyId: string
+  currentPrompt: string | null
+}) {
+  const [prompt, setPrompt] = useState(currentPrompt ?? "")
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const isCustom = currentPrompt != null && currentPrompt !== ""
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await updateAiSystemPrompt({
+        propertyId,
+        prompt: prompt.trim() || null,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error("Failed to save prompt:", err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleReset() {
+    setPrompt("")
+    updateAiSystemPrompt({ propertyId, prompt: null })
+  }
+
+  return (
+    <div className="card p-5 lg:col-span-2">
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
+        <Bot className="h-5 w-5 text-accent-600" />
+        AI System Prompt
+      </h2>
+      <p className="mb-4 text-sm text-neutral-500">
+        Customize the AI garden designer's personality and behavior.
+        Climate data, plant database, and companion relationships are automatically included.
+      </p>
+
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder={DEFAULT_SYSTEM_PROMPT}
+        rows={8}
+        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+      />
+
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-primary"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Prompt"
+          )}
+        </button>
+        {isCustom && (
+          <button onClick={handleReset} className="btn-secondary">
+            <RotateCcw className="h-4 w-4" />
+            Reset to Default
+          </button>
+        )}
+        {saved && (
+          <span className="text-sm text-green-600">Saved!</span>
+        )}
+      </div>
     </div>
   )
 }

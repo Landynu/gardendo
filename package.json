@@ -6,6 +6,7 @@
     ".wasp/out/sdk/wasp"
   ],
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.79.0",
     "@aws-sdk/client-s3": "^3.1006.0",
     "@aws-sdk/s3-request-presigner": "^3.1006.0",
     "clsx": "^2.1.1",

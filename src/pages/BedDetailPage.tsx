@@ -1,6 +1,7 @@
 import {
   useQuery,
   getBedById,
+  getPlants,
   saveBedSquares,
   getCompanionships,
 } from "wasp/client/operations";
@@ -13,12 +14,14 @@ import {
   Eraser,
   Save,
   Palette,
+  Sparkles,
   X,
   Heart,
   ShieldAlert,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { PlantPalette } from "../components/PlantPalette";
+import { AiDesigner } from "../components/AiDesigner";
 import { getActiveCells, type BedShape } from "../lib/bedShapes";
 
 const SEASONS = ["SPRING", "SUMMER", "FALL"] as const;
@@ -38,6 +41,7 @@ export function BedDetailPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const {
     data: bed,
@@ -47,6 +51,7 @@ export function BedDetailPage() {
     id: bedId!,
   });
   const { data: companionships } = useQuery(getCompanionships);
+  const { data: allPlants } = useQuery(getPlants, {});
 
   // Build a lookup map: "plantIdA:plantIdB" -> "BENEFICIAL" | "HARMFUL"
   const companionMap = useMemo(() => {
@@ -347,6 +352,15 @@ export function BedDetailPage() {
             >
               <Palette className="h-4 w-4" />
               Plants
+            </button>
+
+            {/* Design with AI */}
+            <button
+              onClick={() => setAiPanelOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-accent-100 px-3 py-1.5 text-sm font-medium text-accent-700 hover:bg-accent-200"
+            >
+              <Sparkles className="h-4 w-4" />
+              Design with AI
             </button>
 
             {/* Spacer */}
@@ -669,6 +683,25 @@ export function BedDetailPage() {
           plantedPlantIds={plantedPlantIds}
         />
       </div>
+
+      {/* AI Designer panel */}
+      {aiPanelOpen && bed && allPlants && (
+        <AiDesigner
+          bed={{
+            ...bed,
+            shape: bed.shape ?? "RECTANGLE",
+            zone: { propertyId: (bed as any).zone?.property?.id ?? (bed as any).zone?.propertyId },
+          }}
+          year={year}
+          season={season}
+          plants={allPlants as Plant[]}
+          onAcceptLayout={(squares) => {
+            setLocalSquares(squares);
+            setIsDirty(true);
+          }}
+          onClose={() => setAiPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }

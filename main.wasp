@@ -291,6 +291,36 @@ action setPlantDisplayPhoto {
   entities: [Plant, Photo]
 }
 
+// ─── AI ────────────────────────────────────
+
+api aiDesignBed {
+  fn: import { aiDesignBed } from "@src/ai/designApi",
+  httpRoute: (POST, "/api/ai/design-bed"),
+  auth: true,
+  entities: [User, Plant, PlantFamily, CompanionPlant, Property, PropertyMember,
+             GardenBed, BedSquare, Planting, PropertyZone]
+}
+
+action saveAiApiKey {
+  fn: import { saveAiApiKey } from "@src/ai/actions",
+  entities: [User]
+}
+
+query getAiKeyStatus {
+  fn: import { getAiKeyStatus } from "@src/ai/actions",
+  entities: [User]
+}
+
+action deleteAiApiKey {
+  fn: import { deleteAiApiKey } from "@src/ai/actions",
+  entities: [User]
+}
+
+action updateAiSystemPrompt {
+  fn: import { updateAiSystemPrompt } from "@src/ai/actions",
+  entities: [Property, PropertyMember]
+}
+
 // ─── JOBS ───────────────────────────────────
 
 job generateDailyTasks {
