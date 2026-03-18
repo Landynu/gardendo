@@ -1,5 +1,8 @@
 # GardenDo — Project Conventions
 
+## Tooling — CartoGopher MANDATORY
+**Use CartoGopher MCP tools for ALL code exploration.** Never use Grep/Glob/Read to discover code — use `search`, `symbol`, `related_to`, `file_functions`, `slice` instead. Only use Read when you need the full file to make an edit. See `.claude/rules/conventions.md` for the full workflow. Run `/rebake` after significant code changes.
+
 ## Overview
 Permaculture property management app for a 25-acre Zone 3B property near Regina, SK.
 Built with WASP 0.21, React 19, TypeScript, Tailwind CSS v4, PostgreSQL.
@@ -29,8 +32,17 @@ src/
   calendar/        # Calendar queries + actions
   tasks/           # Task queries + actions
   photos/          # Photo queries + actions
+  seeds/           # Seed inventory + starting queries + actions
+  harvest/         # Harvest log queries + actions
+  weather/         # Weather queries (Tempest + Open-Meteo) + actions
+  journal/         # Journal entry queries + actions
+  animals/         # Animal group/health/egg queries + actions
+  systems/         # Water system + compost bin queries + actions
+  inventory/       # Inventory item queries + actions
+  soil/            # Soil test + amendment log queries + actions
   jobs/            # PgBoss job implementations
-  lib/             # Shared helpers (auth.ts, etc.)
+  lib/             # Shared helpers (auth.ts, frostDates.ts, styles.ts)
+  components/ui/   # Reusable UI components (Badge, FilterTabs, etc.)
 ```
 
 ## Key Conventions

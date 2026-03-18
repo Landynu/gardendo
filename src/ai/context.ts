@@ -90,29 +90,35 @@ export async function buildBedDesignContext(
         },
       }),
       // Seed inventory for this property
-      entities.SeedInventory?.findMany?.({
-        where: { propertyId },
-        include: { plant: { select: { id: true, name: true, variety: true } } },
-      }).catch(() => []) ?? Promise.resolve([]),
+      (entities.SeedInventory
+        ? entities.SeedInventory.findMany({
+            where: { propertyId },
+            include: { plant: { select: { id: true, name: true, variety: true } } },
+          }).catch(() => [])
+        : Promise.resolve([])),
       // Journal entries for this property (recent)
-      entities.JournalEntry?.findMany?.({
-        where: { propertyId },
-        orderBy: { date: "desc" },
-        take: 5,
-      }).catch(() => []) ?? Promise.resolve([]),
+      (entities.JournalEntry
+        ? entities.JournalEntry.findMany({
+            where: { propertyId },
+            orderBy: { date: "desc" },
+            take: 5,
+          }).catch(() => [])
+        : Promise.resolve([])),
       // Harvest logs for this property (last 2 years)
-      entities.HarvestLog?.findMany?.({
-        where: {
-          propertyId,
-          date: { gte: `${year - 1}-01-01` },
-        },
-        include: {
-          plant: { select: { name: true, variety: true } },
-          planting: { include: { plant: { select: { name: true, variety: true } }, bed: { select: { id: true, name: true } } } },
-        },
-        orderBy: { date: "desc" },
-        take: 50,
-      }).catch(() => []) ?? Promise.resolve([]),
+      (entities.HarvestLog
+        ? entities.HarvestLog.findMany({
+            where: {
+              propertyId,
+              date: { gte: `${year - 1}-01-01` },
+            },
+            include: {
+              plant: { select: { name: true, variety: true } },
+              planting: { include: { plant: { select: { name: true, variety: true } }, bed: { select: { id: true, name: true } } } },
+            },
+            orderBy: { date: "desc" },
+            take: 50,
+          }).catch(() => [])
+        : Promise.resolve([])),
     ]);
 
   if (!property || !bed) {
@@ -414,89 +420,102 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
   }
 
   // 11. Livestock
-  try {
-    const animalGroups = await (entities.AnimalGroup?.findMany?.({
-      where: { propertyId },
-      include: {
-        animals: { where: { isActive: true }, select: { id: true } },
-        eggLogs: { orderBy: { date: "desc" }, take: 7 },
-      },
-    }) ?? Promise.resolve([]));
-
-    if (animalGroups && animalGroups.length > 0) {
-      const livestockLines = animalGroups.map((g: any) => {
-        const count = g.animals.length;
-        const weeklyEggs = g.eggLogs.reduce((sum: number, l: any) => sum + l.count, 0);
-        let line = `- ${g.name} (${g.animalType.toLowerCase()}): ${count} animals`;
-        if (weeklyEggs > 0) line += `, ~${weeklyEggs} eggs/week`;
-        return line;
+  if (entities.AnimalGroup) {
+    try {
+      const animalGroups = await entities.AnimalGroup.findMany({
+        where: { propertyId },
+        include: {
+          animals: { where: { isActive: true }, select: { id: true } },
+          eggLogs: { orderBy: { date: "desc" }, take: 7 },
+        },
       });
-      sections.push(`## Livestock\n${livestockLines.join("\n")}`);
+
+      if (animalGroups.length > 0) {
+        const livestockLines = animalGroups.map((g: any) => {
+          const count = g.animals.length;
+          const weeklyEggs = g.eggLogs.reduce((sum: number, l: any) => sum + l.count, 0);
+          let line = `- ${g.name} (${g.animalType.toLowerCase()}): ${count} animals`;
+          if (weeklyEggs > 0) line += `, ~${weeklyEggs} eggs/week`;
+          return line;
+        });
+        sections.push(`## Livestock\n${livestockLines.join("\n")}`);
+      }
+    } catch (e) {
+      console.error("AI context: failed to load livestock:", e);
     }
-  } catch {
-    // AnimalGroup entity not available — skip
   }
 
   // 12. Water & Compost
-  try {
-    const [waterSystems, compostBins] = await Promise.all([
-      entities.WaterSystem?.findMany?.({
-        where: { propertyId },
-        include: { logs: { orderBy: { date: "desc" }, take: 1 } },
-      }) ?? Promise.resolve([]),
-      entities.CompostBin?.findMany?.({
-        where: { propertyId },
-        include: { logs: { orderBy: { date: "desc" }, take: 1 } },
-      }) ?? Promise.resolve([]),
-    ]);
-
+  {
     const resourceLines: string[] = [];
-    if (waterSystems && waterSystems.length > 0) {
-      resourceLines.push("### Water Systems");
-      for (const ws of waterSystems) {
-        const lastLog = (ws as any).logs?.[0];
-        let line = `- ${ws.name}: ${ws.sourceType.toLowerCase()}`;
-        if (ws.capacityGallons) line += `, ${ws.capacityGallons} gal capacity`;
-        if (lastLog?.levelGallons != null) line += `, currently at ${lastLog.levelGallons} gal`;
-        resourceLines.push(line);
-      }
-    }
-    if (compostBins && compostBins.length > 0) {
-      resourceLines.push("### Compost");
-      for (const cb of compostBins) {
-        const lastLog = (cb as any).logs?.[0];
-        let line = `- ${cb.name}`;
-        if ((cb as any).type) line += ` (${(cb as any).type})`;
-        if (lastLog) {
-          line += `, last ${lastLog.action.toLowerCase().replace(/_/g, " ")} on ${lastLog.date}`;
-          if (lastLog.tempFahrenheit != null) line += ` (${lastLog.tempFahrenheit}°F)`;
+
+    if (entities.WaterSystem) {
+      try {
+        const waterSystems = await entities.WaterSystem.findMany({
+          where: { propertyId },
+          include: { logs: { orderBy: { date: "desc" }, take: 1 } },
+        });
+        if (waterSystems.length > 0) {
+          resourceLines.push("### Water Systems");
+          for (const ws of waterSystems) {
+            const lastLog = (ws as any).logs?.[0];
+            let line = `- ${ws.name}: ${ws.sourceType.toLowerCase()}`;
+            if (ws.capacityGallons) line += `, ${ws.capacityGallons} gal capacity`;
+            if (lastLog?.levelGallons != null) line += `, currently at ${lastLog.levelGallons} gal`;
+            resourceLines.push(line);
+          }
         }
-        resourceLines.push(line);
+      } catch (e) {
+        console.error("AI context: failed to load water systems:", e);
       }
     }
+
+    if (entities.CompostBin) {
+      try {
+        const compostBins = await entities.CompostBin.findMany({
+          where: { propertyId },
+          include: { logs: { orderBy: { date: "desc" }, take: 1 } },
+        });
+        if (compostBins.length > 0) {
+          resourceLines.push("### Compost");
+          for (const cb of compostBins) {
+            const lastLog = (cb as any).logs?.[0];
+            let line = `- ${cb.name}`;
+            if ((cb as any).type) line += ` (${(cb as any).type})`;
+            if (lastLog) {
+              line += `, last ${lastLog.action.toLowerCase().replace(/_/g, " ")} on ${lastLog.date}`;
+              if (lastLog.tempFahrenheit != null) line += ` (${lastLog.tempFahrenheit}°F)`;
+            }
+            resourceLines.push(line);
+          }
+        }
+      } catch (e) {
+        console.error("AI context: failed to load compost bins:", e);
+      }
+    }
+
     if (resourceLines.length > 0) {
       sections.push(`## Water & Compost Resources\n${resourceLines.join("\n")}`);
     }
-  } catch {
-    // entities not available — skip
   }
 
   // 13. Inventory (amendments & supplies)
-  try {
-    const inventoryItems = await (entities.InventoryItem?.findMany?.({
-      where: { propertyId, category: { in: ["AMENDMENT", "SUPPLY"] as any } },
-    }) ?? Promise.resolve([]));
-
-    if (inventoryItems && inventoryItems.length > 0) {
-      const invLines = inventoryItems.map((item: any) => {
-        let line = `- ${item.name}`;
-        if (item.quantity != null) line += `: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`;
-        return line;
+  if (entities.InventoryItem) {
+    try {
+      const inventoryItems = await entities.InventoryItem.findMany({
+        where: { propertyId, category: { in: ["AMENDMENT", "SUPPLY"] as any } },
       });
-      sections.push(`## Available Amendments & Supplies\n${invLines.join("\n")}`);
+      if (inventoryItems.length > 0) {
+        const invLines = inventoryItems.map((item: any) => {
+          let line = `- ${item.name}`;
+          if (item.quantity != null) line += `: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`;
+          return line;
+        });
+        sections.push(`## Available Amendments & Supplies\n${invLines.join("\n")}`);
+      }
+    } catch (e) {
+      console.error("AI context: failed to load inventory:", e);
     }
-  } catch {
-    // entity not available — skip
   }
 
   // 14. Recent journal notes
@@ -509,46 +528,55 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
   }
 
   // 15. Soil health for this bed
-  try {
-    const [soilTests, amendmentLogs] = await Promise.all([
-      entities.SoilTest?.findMany?.({
-        where: { propertyId, bedId },
-        orderBy: { date: "desc" },
-        take: 3,
-      }) ?? Promise.resolve([]),
-      entities.AmendmentLog?.findMany?.({
-        where: { propertyId, bedId },
-        orderBy: { date: "desc" },
-        take: 5,
-      }) ?? Promise.resolve([]),
-    ]);
-
+  {
     const soilLines: string[] = [];
-    if (soilTests && soilTests.length > 0) {
-      const latest = soilTests[0];
-      const parts: string[] = [];
-      if (latest.ph != null) parts.push(`pH ${latest.ph}`);
-      if (latest.nitrogen != null) parts.push(`N: ${latest.nitrogen < 3 ? "low" : latest.nitrogen < 7 ? "moderate" : "high"}`);
-      if (latest.phosphorus != null) parts.push(`P: ${latest.phosphorus < 3 ? "low" : latest.phosphorus < 7 ? "moderate" : "high"}`);
-      if (latest.potassium != null) parts.push(`K: ${latest.potassium < 3 ? "low" : latest.potassium < 7 ? "moderate" : "high"}`);
-      if (latest.organicMatter != null) parts.push(`OM: ${latest.organicMatter}%`);
-      if (latest.texture) parts.push(`Texture: ${latest.texture}`);
-      soilLines.push(`Latest test (${latest.date}): ${parts.join(", ")}`);
 
-      // Soil needs summary
-      const needs: string[] = [];
-      if (latest.phosphorus != null && latest.phosphorus < 3) needs.push("phosphorus is low");
-      if (latest.nitrogen != null && latest.nitrogen < 3) needs.push("nitrogen is low");
-      if (latest.potassium != null && latest.potassium < 3) needs.push("potassium is low");
-      if (latest.ph != null && latest.ph < 5.5) needs.push("pH is very acidic — consider lime");
-      if (latest.ph != null && latest.ph > 7.5) needs.push("pH is alkaline — consider sulfur");
-      if (needs.length > 0) soilLines.push(`Soil needs: ${needs.join("; ")}`);
+    if (entities.SoilTest) {
+      try {
+        const soilTests = await entities.SoilTest.findMany({
+          where: { propertyId, bedId },
+          orderBy: { date: "desc" },
+          take: 3,
+        });
+        if (soilTests.length > 0) {
+          const latest = soilTests[0];
+          const parts: string[] = [];
+          if (latest.ph != null) parts.push(`pH ${latest.ph}`);
+          if (latest.nitrogen != null) parts.push(`N: ${latest.nitrogen < 3 ? "low" : latest.nitrogen < 7 ? "moderate" : "high"}`);
+          if (latest.phosphorus != null) parts.push(`P: ${latest.phosphorus < 3 ? "low" : latest.phosphorus < 7 ? "moderate" : "high"}`);
+          if (latest.potassium != null) parts.push(`K: ${latest.potassium < 3 ? "low" : latest.potassium < 7 ? "moderate" : "high"}`);
+          if (latest.organicMatter != null) parts.push(`OM: ${latest.organicMatter}%`);
+          if (latest.texture) parts.push(`Texture: ${latest.texture}`);
+          soilLines.push(`Latest test (${latest.date}): ${parts.join(", ")}`);
+
+          const needs: string[] = [];
+          if (latest.phosphorus != null && latest.phosphorus < 3) needs.push("phosphorus is low");
+          if (latest.nitrogen != null && latest.nitrogen < 3) needs.push("nitrogen is low");
+          if (latest.potassium != null && latest.potassium < 3) needs.push("potassium is low");
+          if (latest.ph != null && latest.ph < 5.5) needs.push("pH is very acidic — consider lime");
+          if (latest.ph != null && latest.ph > 7.5) needs.push("pH is alkaline — consider sulfur");
+          if (needs.length > 0) soilLines.push(`Soil needs: ${needs.join("; ")}`);
+        }
+      } catch (e) {
+        console.error("AI context: failed to load soil tests:", e);
+      }
     }
 
-    if (amendmentLogs && amendmentLogs.length > 0) {
-      soilLines.push("Recent amendments:");
-      for (const a of amendmentLogs.slice(0, 3)) {
-        soilLines.push(`- ${a.date}: ${a.amendment}${a.quantityLbs ? `, ${a.quantityLbs} lbs` : ""}`);
+    if (entities.AmendmentLog) {
+      try {
+        const amendmentLogs = await entities.AmendmentLog.findMany({
+          where: { propertyId, bedId },
+          orderBy: { date: "desc" },
+          take: 5,
+        });
+        if (amendmentLogs.length > 0) {
+          soilLines.push("Recent amendments:");
+          for (const a of amendmentLogs.slice(0, 3)) {
+            soilLines.push(`- ${a.date}: ${a.amendment}${a.quantityLbs ? `, ${a.quantityLbs} lbs` : ""}`);
+          }
+        }
+      } catch (e) {
+        console.error("AI context: failed to load amendment logs:", e);
       }
     }
 

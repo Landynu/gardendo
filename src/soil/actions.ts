@@ -1,4 +1,9 @@
-import { type CreateSoilTest, type CreateAmendmentLog } from "wasp/server/operations"
+import {
+  type CreateSoilTest,
+  type DeleteSoilTest,
+  type CreateAmendmentLog,
+  type DeleteAmendmentLog,
+} from "wasp/server/operations"
 import { HttpError } from "wasp/server"
 import { requirePropertyMember } from "../lib/auth"
 
@@ -68,4 +73,22 @@ export const createAmendmentLog: CreateAmendmentLog<CreateAmendmentLogArgs, any>
       userId: context.user.id,
     },
   })
+}
+
+// ─── Delete operations ──────────────────────
+
+type DeleteSoilTestArgs = { id: string; propertyId: string }
+
+export const deleteSoilTest: DeleteSoilTest<DeleteSoilTestArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.SoilTest.delete({ where: { id: args.id } })
+}
+
+type DeleteAmendmentLogArgs = { id: string; propertyId: string }
+
+export const deleteAmendmentLog: DeleteAmendmentLog<DeleteAmendmentLogArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.AmendmentLog.delete({ where: { id: args.id } })
 }

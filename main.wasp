@@ -253,6 +253,16 @@ action createAmendmentLog {
   entities: [AmendmentLog, PropertyMember]
 }
 
+action deleteSoilTest {
+  fn: import { deleteSoilTest } from "@src/soil/actions",
+  entities: [SoilTest, PropertyMember]
+}
+
+action deleteAmendmentLog {
+  fn: import { deleteAmendmentLog } from "@src/soil/actions",
+  entities: [AmendmentLog, PropertyMember]
+}
+
 // ─── SYSTEMS QUERIES & ACTIONS ─────────────
 
 query getWaterSystems {
@@ -283,6 +293,36 @@ action createCompostBin {
 action createCompostLog {
   fn: import { createCompostLog } from "@src/systems/actions",
   entities: [CompostLog, CompostBin, PropertyMember]
+}
+
+action updateWaterSystem {
+  fn: import { updateWaterSystem } from "@src/systems/actions",
+  entities: [WaterSystem, PropertyMember]
+}
+
+action deleteWaterSystem {
+  fn: import { deleteWaterSystem } from "@src/systems/actions",
+  entities: [WaterSystem, PropertyMember]
+}
+
+action deleteWaterLog {
+  fn: import { deleteWaterLog } from "@src/systems/actions",
+  entities: [WaterLog, PropertyMember]
+}
+
+action updateCompostBin {
+  fn: import { updateCompostBin } from "@src/systems/actions",
+  entities: [CompostBin, PropertyMember]
+}
+
+action deleteCompostBin {
+  fn: import { deleteCompostBin } from "@src/systems/actions",
+  entities: [CompostBin, PropertyMember]
+}
+
+action deleteCompostLog {
+  fn: import { deleteCompostLog } from "@src/systems/actions",
+  entities: [CompostLog, PropertyMember]
 }
 
 // ─── INVENTORY QUERIES & ACTIONS ──────────
@@ -337,6 +377,31 @@ action createHealthRecord {
 action createEggLog {
   fn: import { createEggLog } from "@src/animals/actions",
   entities: [EggLog, AnimalGroup, PropertyMember]
+}
+
+action updateAnimalGroup {
+  fn: import { updateAnimalGroup } from "@src/animals/actions",
+  entities: [AnimalGroup, PropertyMember]
+}
+
+action deleteAnimalGroup {
+  fn: import { deleteAnimalGroup } from "@src/animals/actions",
+  entities: [AnimalGroup, PropertyMember]
+}
+
+action updateAnimal {
+  fn: import { updateAnimal } from "@src/animals/actions",
+  entities: [Animal, PropertyMember]
+}
+
+action deleteHealthRecord {
+  fn: import { deleteHealthRecord } from "@src/animals/actions",
+  entities: [AnimalHealthRecord, PropertyMember]
+}
+
+action deleteEggLog {
+  fn: import { deleteEggLog } from "@src/animals/actions",
+  entities: [EggLog, PropertyMember]
 }
 
 // ─── JOURNAL QUERIES & ACTIONS ─────────────

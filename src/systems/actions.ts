@@ -1,8 +1,14 @@
 import {
   type CreateWaterSystem,
+  type UpdateWaterSystem,
+  type DeleteWaterSystem,
   type CreateWaterLog,
+  type DeleteWaterLog,
   type CreateCompostBin,
+  type UpdateCompostBin,
+  type DeleteCompostBin,
   type CreateCompostLog,
+  type DeleteCompostLog,
 } from "wasp/server/operations"
 import { HttpError } from "wasp/server"
 import { requirePropertyMember } from "../lib/auth"
@@ -121,4 +127,56 @@ export const createCompostLog: CreateCompostLog<CreateCompostLogArgs, any> = asy
       binId: args.binId,
     },
   })
+}
+
+// ─── Update / Delete operations ─────────────
+
+type UpdateWaterSystemArgs = { id: string; propertyId: string; name?: string; capacityGallons?: number; notes?: string }
+
+export const updateWaterSystem: UpdateWaterSystem<UpdateWaterSystemArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  const { id, propertyId, ...data } = args
+  return context.entities.WaterSystem.update({ where: { id }, data })
+}
+
+type DeleteWaterSystemArgs = { id: string; propertyId: string }
+
+export const deleteWaterSystem: DeleteWaterSystem<DeleteWaterSystemArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.WaterSystem.delete({ where: { id: args.id } })
+}
+
+type DeleteWaterLogArgs = { id: string; propertyId: string }
+
+export const deleteWaterLog: DeleteWaterLog<DeleteWaterLogArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.WaterLog.delete({ where: { id: args.id } })
+}
+
+type UpdateCompostBinArgs = { id: string; propertyId: string; name?: string; type?: string; capacityCuFt?: number; notes?: string }
+
+export const updateCompostBin: UpdateCompostBin<UpdateCompostBinArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  const { id, propertyId, ...data } = args
+  return context.entities.CompostBin.update({ where: { id }, data })
+}
+
+type DeleteCompostBinArgs = { id: string; propertyId: string }
+
+export const deleteCompostBin: DeleteCompostBin<DeleteCompostBinArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.CompostBin.delete({ where: { id: args.id } })
+}
+
+type DeleteCompostLogArgs = { id: string; propertyId: string }
+
+export const deleteCompostLog: DeleteCompostLog<DeleteCompostLogArgs, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401)
+  await requirePropertyMember(context, args.propertyId)
+  return context.entities.CompostLog.delete({ where: { id: args.id } })
 }
