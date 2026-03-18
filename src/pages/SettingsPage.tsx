@@ -391,11 +391,11 @@ function AiSystemPromptCard({
   propertyId: string
   currentPrompt: string | null
 }) {
-  const [prompt, setPrompt] = useState(currentPrompt ?? "")
+  const [prompt, setPrompt] = useState(currentPrompt ?? DEFAULT_SYSTEM_PROMPT)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const isCustom = currentPrompt != null && currentPrompt !== ""
+  const isCustom = prompt !== DEFAULT_SYSTEM_PROMPT
 
   async function handleSave() {
     setSaving(true)
@@ -414,7 +414,7 @@ function AiSystemPromptCard({
   }
 
   function handleReset() {
-    setPrompt("")
+    setPrompt(DEFAULT_SYSTEM_PROMPT)
     updateAiSystemPrompt({ propertyId, prompt: null })
   }
 
@@ -432,9 +432,8 @@ function AiSystemPromptCard({
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder={DEFAULT_SYSTEM_PROMPT}
         rows={12}
-        className="max-h-96 w-full overflow-y-auto rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        className="h-72 w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
       />
 
       <div className="mt-3 flex items-center gap-2">
