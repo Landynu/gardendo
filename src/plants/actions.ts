@@ -12,6 +12,25 @@ import {
 import { type Plant, type CompanionPlant } from "wasp/entities";
 import { HttpError } from "wasp/server";
 
+/** Auto-compute harvestRelativeWeeks from daysToMaturity + planting method.
+ *  - Transplanted crops: days to maturity counts from transplant
+ *  - Direct-sown crops: days to maturity counts from sowing */
+function computeHarvestWeeks(args: {
+  daysToMaturity?: number;
+  transplantWeeks?: number;
+  directSowWeeks?: number;
+  startIndoorWeeks?: number;
+  harvestRelativeWeeks?: number;
+}): number | undefined {
+  if (args.daysToMaturity != null) {
+    const maturityWeeks = Math.ceil(args.daysToMaturity / 7);
+    if (args.transplantWeeks != null) return args.transplantWeeks + maturityWeeks;
+    if (args.directSowWeeks != null) return args.directSowWeeks + maturityWeeks;
+    if (args.startIndoorWeeks != null) return args.startIndoorWeeks + maturityWeeks;
+  }
+  return args.harvestRelativeWeeks;
+}
+
 type CreatePlantArgs = {
   name: string;
   scientificName?: string;
@@ -73,7 +92,7 @@ export const createPlant: CreatePlant<CreatePlantArgs, Plant> = async (
       startIndoorWeeks: args.startIndoorWeeks,
       transplantWeeks: args.transplantWeeks,
       directSowWeeks: args.directSowWeeks,
-      harvestRelativeWeeks: args.harvestRelativeWeeks,
+      harvestRelativeWeeks: computeHarvestWeeks(args),
       plantsPerSqFt: args.plantsPerSqFt,
       sqftColor: args.sqftColor,
       permLayer: args.permLayer as any,
@@ -133,6 +152,19 @@ export const updatePlant: UpdatePlant<UpdatePlantArgs, Plant> = async (
 
   const { id, ...data } = args;
 
+  // Merge with existing plant data to compute harvest weeks correctly
+  // (partial updates may not include all schedule fields)
+  const existing = await context.entities.Plant.findUnique({ where: { id } });
+  if (!existing) throw new HttpError(404);
+
+  const merged = {
+    daysToMaturity: data.daysToMaturity ?? existing.daysToMaturity ?? undefined,
+    transplantWeeks: data.transplantWeeks ?? existing.transplantWeeks ?? undefined,
+    directSowWeeks: data.directSowWeeks ?? existing.directSowWeeks ?? undefined,
+    startIndoorWeeks: data.startIndoorWeeks ?? existing.startIndoorWeeks ?? undefined,
+    harvestRelativeWeeks: data.harvestRelativeWeeks ?? existing.harvestRelativeWeeks ?? undefined,
+  };
+
   return context.entities.Plant.update({
     where: { id },
     data: {
@@ -143,6 +175,7 @@ export const updatePlant: UpdatePlant<UpdatePlantArgs, Plant> = async (
       waterNeed: data.waterNeed as any,
       seasonType: data.seasonType as any,
       permLayer: data.permLayer as any,
+      harvestRelativeWeeks: computeHarvestWeeks(merged),
       isUserEdited: true,
     },
   });

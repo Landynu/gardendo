@@ -87,7 +87,7 @@ export function PlantFormModal({ open, onClose }: Props) {
   const [startIndoorWeeks, setStartIndoorWeeks] = useState("")
   const [transplantWeeks, setTransplantWeeks] = useState("")
   const [directSowWeeks, setDirectSowWeeks] = useState("")
-  const [harvestRelativeWeeks, setHarvestRelativeWeeks] = useState("")
+  // harvestRelativeWeeks is auto-computed server-side from daysToMaturity + planting method
 
   // Permaculture
   const [permLayer, setPermLayer] = useState("")
@@ -118,7 +118,6 @@ export function PlantFormModal({ open, onClose }: Props) {
     setStartIndoorWeeks("")
     setTransplantWeeks("")
     setDirectSowWeeks("")
-    setHarvestRelativeWeeks("")
     setPermLayer("")
     setIsNitrogenFixer(false)
     setIsDynamicAccumulator(false)
@@ -163,7 +162,7 @@ export function PlantFormModal({ open, onClose }: Props) {
         startIndoorWeeks: intOrUndef(startIndoorWeeks),
         transplantWeeks: intOrUndef(transplantWeeks),
         directSowWeeks: intOrUndef(directSowWeeks),
-        harvestRelativeWeeks: intOrUndef(harvestRelativeWeeks),
+        // harvestRelativeWeeks auto-computed server-side
         permLayer: strOrUndef(permLayer),
         isNitrogenFixer,
         isDynamicAccumulator,
@@ -460,13 +459,23 @@ export function PlantFormModal({ open, onClose }: Props) {
               </div>
               <div>
                 <label className="label">Harvest</label>
-                <input
-                  type="number"
-                  value={harvestRelativeWeeks}
-                  onChange={(e) => setHarvestRelativeWeeks(e.target.value)}
-                  placeholder="e.g. 12"
-                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
-                />
+                <p className="mt-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
+                  {(() => {
+                    const dtm = parseInt(daysToMaturity);
+                    const tw = parseInt(transplantWeeks);
+                    const dsw = parseInt(directSowWeeks);
+                    const siw = parseInt(startIndoorWeeks);
+                    if (!isNaN(dtm)) {
+                      const mw = Math.ceil(dtm / 7);
+                      const base = !isNaN(tw) ? tw : !isNaN(dsw) ? dsw : !isNaN(siw) ? siw : null;
+                      if (base !== null) {
+                        const w = base + mw;
+                        return `${Math.abs(w)} week${Math.abs(w) !== 1 ? "s" : ""} ${w < 0 ? "before" : "after"} last frost (auto)`;
+                      }
+                    }
+                    return "Set days to maturity + planting method";
+                  })()}
+                </p>
               </div>
             </div>
           </section>

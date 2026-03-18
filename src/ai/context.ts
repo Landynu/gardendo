@@ -528,7 +528,7 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
   }
 
   // 15. Soil health for this bed
-  {
+  try {
     const soilLines: string[] = [];
 
     if (entities.SoilTest) {

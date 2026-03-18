@@ -142,7 +142,10 @@ export function PlantDetailPage() {
     getPlantPhotos,
     plantId ? { plantId } : undefined,
   );
-  const [photoTab, setPhotoTab] = useState<"yours" | "stock">("yours");
+  const hasPhotos = photos && photos.length > 0;
+  const [photoTabOverride, setPhotoTabOverride] = useState<"yours" | "stock" | null>(null);
+  const photoTab = photoTabOverride ?? (hasPhotos ? "yours" : "stock");
+  const setPhotoTab = setPhotoTabOverride;
   const [newCompanionPlantId, setNewCompanionPlantId] = useState("");
   const [newCompanionType, setNewCompanionType] =
     useState<CompanionTypeValue>("BENEFICIAL");
@@ -600,17 +603,26 @@ export function PlantDetailPage() {
                 color="bg-earth-500"
               />
             )}
-            {plant.harvestRelativeWeeks != null && (
-              <ScheduleRow
-                label="Harvest"
-                weeks={plant.harvestRelativeWeeks}
-                color="bg-amber-500"
-              />
-            )}
+            {(() => {
+              // Compute harvest week from daysToMaturity + planting method
+              // "Days to maturity" means days from transplant (for transplanted crops)
+              // or days from sowing (for direct-sown crops)
+              const harvestWeeks = computeHarvestWeeks(plant);
+              if (harvestWeeks != null) {
+                return (
+                  <ScheduleRow
+                    label="Harvest"
+                    weeks={harvestWeeks}
+                    color="bg-amber-500"
+                  />
+                );
+              }
+              return null;
+            })()}
             {plant.startIndoorWeeks == null &&
               plant.transplantWeeks == null &&
               plant.directSowWeeks == null &&
-              plant.harvestRelativeWeeks == null && (
+              plant.daysToMaturity == null && (
                 <p className="text-sm text-neutral-400">
                   No schedule data available
                 </p>
@@ -1147,6 +1159,36 @@ function ZoneBadge({
         : `May not survive Zone ${propertyZone}`}
     </span>
   );
+}
+
+/** Compute harvest week relative to last frost from daysToMaturity + planting method.
+ *  - Transplanted crops: "days to maturity" counts from transplant date
+ *  - Direct-sown crops: "days to maturity" counts from sowing date
+ *  - Falls back to stored harvestRelativeWeeks if we can't compute */
+function computeHarvestWeeks(plant: {
+  daysToMaturity?: number | null;
+  transplantWeeks?: number | null;
+  directSowWeeks?: number | null;
+  startIndoorWeeks?: number | null;
+  harvestRelativeWeeks?: number | null;
+}): number | null {
+  if (plant.daysToMaturity != null) {
+    const maturityWeeks = Math.ceil(plant.daysToMaturity / 7);
+    // For transplanted crops, days to maturity is from transplant
+    if (plant.transplantWeeks != null) {
+      return plant.transplantWeeks + maturityWeeks;
+    }
+    // For direct-sown crops, days to maturity is from sowing
+    if (plant.directSowWeeks != null) {
+      return plant.directSowWeeks + maturityWeeks;
+    }
+    // Started indoors but no transplant week — estimate from indoor start
+    if (plant.startIndoorWeeks != null) {
+      return plant.startIndoorWeeks + maturityWeeks;
+    }
+  }
+  // Fallback to stored value
+  return plant.harvestRelativeWeeks ?? null;
 }
 
 function ScheduleRow({

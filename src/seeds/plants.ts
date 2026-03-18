@@ -1,5 +1,22 @@
 import { type DbSeedFn } from "wasp/server";
 
+/** Auto-compute harvestRelativeWeeks from daysToMaturity + planting method */
+function computeHarvestWeeks(plant: {
+  daysToMaturity: number | null;
+  transplantWeeks: number | null;
+  directSowWeeks: number | null;
+  startIndoorWeeks: number | null;
+  harvestRelativeWeeks: number | null;
+}): number | null {
+  if (plant.daysToMaturity != null) {
+    const maturityWeeks = Math.ceil(plant.daysToMaturity / 7);
+    if (plant.transplantWeeks != null) return plant.transplantWeeks + maturityWeeks;
+    if (plant.directSowWeeks != null) return plant.directSowWeeks + maturityWeeks;
+    if (plant.startIndoorWeeks != null) return plant.startIndoorWeeks + maturityWeeks;
+  }
+  return plant.harvestRelativeWeeks;
+}
+
 export const seedPlants: DbSeedFn = async (prisma) => {
   // Keep seeded plant IDs stable so related records (companions, plantings, photos)
   // remain valid across repeated seed runs.
@@ -2363,11 +2380,16 @@ export const seedPlants: DbSeedFn = async (prisma) => {
   let preserved = 0;
 
   for (const plant of plants) {
+    // Auto-compute harvestRelativeWeeks from daysToMaturity + planting method
+    const plantData = {
+      ...plant,
+      harvestRelativeWeeks: computeHarvestWeeks(plant),
+    };
     const existing = existingByKey.get(makeKey(plant));
 
     if (!existing) {
       await prisma.plant.create({
-        data: { ...plant },
+        data: plantData,
       });
       created++;
       continue;
@@ -2381,7 +2403,7 @@ export const seedPlants: DbSeedFn = async (prisma) => {
     await prisma.plant.update({
       where: { id: existing.id },
       data: {
-        ...plant,
+        ...plantData,
         isUserEdited: false,
       },
     });
