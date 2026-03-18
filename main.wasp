@@ -124,6 +124,24 @@ page TasksPage {
   component: import { TasksPage } from "@src/pages/TasksPage"
 }
 
+route HarvestRoute { path: "/harvest", to: HarvestPage }
+page HarvestPage {
+  authRequired: true,
+  component: import { HarvestPage } from "@src/pages/HarvestPage"
+}
+
+route SeedInventoryRoute { path: "/seeds", to: SeedInventoryPage }
+page SeedInventoryPage {
+  authRequired: true,
+  component: import { SeedInventoryPage } from "@src/pages/SeedInventoryPage"
+}
+
+route SeedStartingRoute { path: "/seeds/starting", to: SeedStartingPage }
+page SeedStartingPage {
+  authRequired: true,
+  component: import { SeedStartingPage } from "@src/pages/SeedStartingPage"
+}
+
 route SettingsRoute { path: "/settings", to: SettingsPage }
 page SettingsPage {
   authRequired: true,
@@ -133,6 +151,70 @@ page SettingsPage {
 route AcceptInviteRoute { path: "/accept-invite", to: AcceptInvitePage }
 page AcceptInvitePage {
   component: import { AcceptInvitePage } from "@src/pages/AcceptInvitePage"
+}
+
+// ─── SEED QUERIES & ACTIONS ────────────────
+
+query getSeedInventory {
+  fn: import { getSeedInventory } from "@src/seeds/queries",
+  entities: [SeedInventory, Plant, SeedStartLog, PropertyMember]
+}
+
+query getSeedStartLogs {
+  fn: import { getSeedStartLogs } from "@src/seeds/queries",
+  entities: [SeedStartLog, SeedInventory, Plant, PropertyMember]
+}
+
+query getSeedStartingSchedule {
+  fn: import { getSeedStartingSchedule } from "@src/seeds/queries",
+  entities: [Plant, SeedInventory, SeedStartLog, Property, PropertyMember]
+}
+
+action createSeedInventory {
+  fn: import { createSeedInventory } from "@src/seeds/actions",
+  entities: [SeedInventory, PropertyMember]
+}
+
+action updateSeedInventory {
+  fn: import { updateSeedInventory } from "@src/seeds/actions",
+  entities: [SeedInventory, PropertyMember]
+}
+
+action deleteSeedInventory {
+  fn: import { deleteSeedInventory } from "@src/seeds/actions",
+  entities: [SeedInventory, PropertyMember]
+}
+
+action createSeedStartLog {
+  fn: import { createSeedStartLog } from "@src/seeds/actions",
+  entities: [SeedStartLog, SeedInventory, PropertyMember]
+}
+
+action updateSeedStartLog {
+  fn: import { updateSeedStartLog } from "@src/seeds/actions",
+  entities: [SeedStartLog, PropertyMember]
+}
+
+// ─── HARVEST QUERIES & ACTIONS ─────────────
+
+query getHarvestLogs {
+  fn: import { getHarvestLogs } from "@src/harvest/queries",
+  entities: [HarvestLog, Plant, Planting, PropertyMember]
+}
+
+query getHarvestSummary {
+  fn: import { getHarvestSummary } from "@src/harvest/queries",
+  entities: [HarvestLog, Plant, Planting, PropertyMember]
+}
+
+action createHarvestLog {
+  fn: import { createHarvestLog } from "@src/harvest/actions",
+  entities: [HarvestLog, PropertyMember]
+}
+
+action deleteHarvestLog {
+  fn: import { deleteHarvestLog } from "@src/harvest/actions",
+  entities: [HarvestLog, PropertyMember]
 }
 
 // ─── PLANT QUERIES & ACTIONS ────────────────
@@ -328,7 +410,7 @@ api aiDesignBed {
   httpRoute: (POST, "/api/ai/design-bed"),
   auth: true,
   entities: [User, Plant, PlantFamily, CompanionPlant, Property, PropertyMember,
-             GardenBed, BedSquare, Planting, PropertyZone]
+             GardenBed, BedSquare, Planting, PropertyZone, SeedInventory, HarvestLog]
 }
 
 action saveAiApiKey {

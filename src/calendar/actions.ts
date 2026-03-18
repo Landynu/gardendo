@@ -1,8 +1,9 @@
 import { type GenerateCalendar } from "wasp/server/operations"
 import { type CalendarEvent } from "wasp/entities"
 import { HttpError } from "wasp/server"
-import { addWeeks, parse, format } from "date-fns"
+import { addWeeks, format } from "date-fns"
 import { requirePropertyMember } from "../lib/auth"
+import { parseFrostDate } from "../lib/frostDates"
 
 type GenerateCalendarArgs = {
   propertyId: string
@@ -28,11 +29,7 @@ export const generateCalendar: GenerateCalendar<
   })
   if (!property) throw new HttpError(404, "Property not found")
 
-  const lastFrostDate = parse(
-    `${args.year}-${property.lastFrostDate}`,
-    "yyyy-MM-dd",
-    new Date()
-  )
+  const lastFrostDate = parseFrostDate(args.year, property.lastFrostDate)
 
   const plants = await context.entities.Plant.findMany()
 

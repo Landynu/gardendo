@@ -40,7 +40,7 @@ export async function buildBedDesignContext(
   season: string,
 ): Promise<{ contextText: string; plantLookup: Record<string, PlantRow> }> {
   // Fetch all data in parallel
-  const [property, bed, allPlants, companions, plantedThisYear, currentBedSquares] =
+  const [property, bed, allPlants, companions, plantedThisYear, currentBedSquares, seedInventory, harvestLogs] =
     await Promise.all([
       entities.Property.findUnique({ where: { id: propertyId } }),
       entities.GardenBed.findUnique({
@@ -88,6 +88,24 @@ export async function buildBedDesignContext(
           },
         },
       }),
+      // Seed inventory for this property
+      entities.SeedInventory?.findMany?.({
+        where: { propertyId },
+        include: { plant: { select: { id: true, name: true, variety: true } } },
+      }).catch(() => []) ?? Promise.resolve([]),
+      // Harvest logs for this property (last 2 years)
+      entities.HarvestLog?.findMany?.({
+        where: {
+          propertyId,
+          date: { gte: `${year - 1}-01-01` },
+        },
+        include: {
+          plant: { select: { name: true, variety: true } },
+          planting: { include: { plant: { select: { name: true, variety: true } }, bed: { select: { id: true, name: true } } } },
+        },
+        orderBy: { date: "desc" },
+        take: 50,
+      }).catch(() => []) ?? Promise.resolve([]),
     ]);
 
   if (!property || !bed) {
@@ -320,6 +338,72 @@ ${placedLines.join("\n")}`);
     sections.push(
       `## Succession Planting Candidates\n${succLines.join("\n")}`,
     );
+  }
+
+  // 9. Seed inventory
+  if (seedInventory && seedInventory.length > 0) {
+    const seedLines = seedInventory.map((si: any) => {
+      const name = si.plant.variety
+        ? `${si.plant.name} (${si.plant.variety})`
+        : si.plant.name;
+      const parts = [name];
+      if (si.quantity != null) parts.push(`${si.quantity} ${si.unit ?? "seeds"}`);
+      if (si.expiryYear) parts.push(`expires ${si.expiryYear}`);
+      if (si.germinationRate != null) parts.push(`${si.germinationRate}% germination`);
+      return `- ${parts.join(", ")}`;
+    });
+
+    const plantIdsInStock = new Set(seedInventory.map((si: any) => si.plantId));
+    const plantsWithoutSeeds = allPlants
+      .filter((p: any) => !plantIdsInStock.has(p.id))
+      .map((p: any) => p.name);
+
+    sections.push(`## Seed Inventory
+Seeds in stock for this property:
+${seedLines.join("\n")}
+${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWithoutSeeds.slice(0, 20).join(", ")}${plantsWithoutSeeds.length > 20 ? ` (+${plantsWithoutSeeds.length - 20} more)` : ""}` : ""}`);
+  }
+
+  // 10. Harvest history
+  if (harvestLogs && harvestLogs.length > 0) {
+    // Filter to harvests relevant to this bed
+    const bedHarvests = harvestLogs.filter(
+      (h: any) => h.planting?.bed?.id === bedId
+    );
+    const otherHarvests = harvestLogs.filter(
+      (h: any) => !h.planting?.bed || h.planting.bed.id !== bedId
+    );
+
+    const harvestLines: string[] = [];
+
+    if (bedHarvests.length > 0) {
+      harvestLines.push("### This Bed");
+      for (const h of bedHarvests.slice(0, 15)) {
+        const name = h.plant
+          ? `${h.plant.name}${h.plant.variety ? ` (${h.plant.variety})` : ""}`
+          : h.planting?.plant
+            ? `${h.planting.plant.name}${h.planting.plant.variety ? ` (${h.planting.plant.variety})` : ""}`
+            : "Unknown";
+        harvestLines.push(`- ${h.date}: ${name}${h.quantityLbs ? ` — ${h.quantityLbs} lbs` : ""}`);
+      }
+    }
+
+    if (otherHarvests.length > 0) {
+      // Summarize other harvests by plant
+      const otherByPlant = new Map<string, number>();
+      for (const h of otherHarvests) {
+        const name = h.plant?.name ?? h.planting?.plant?.name ?? "Unknown";
+        otherByPlant.set(name, (otherByPlant.get(name) ?? 0) + (h.quantityLbs ?? 0));
+      }
+      harvestLines.push("### Property Totals (past 2 years)");
+      for (const [name, lbs] of Array.from(otherByPlant.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)) {
+        harvestLines.push(`- ${name}: ${Math.round(lbs * 10) / 10} lbs`);
+      }
+    }
+
+    if (harvestLines.length > 0) {
+      sections.push(`## Harvest History\n${harvestLines.join("\n")}`);
+    }
   }
 
   return {

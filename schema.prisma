@@ -15,10 +15,11 @@ model User {
   aiApiKey      String?   // Encrypted API key (AES-256-GCM)
   aiProvider    String    @default("anthropic") // "anthropic" or "openrouter"
 
-  memberships PropertyMember[]
-  invitations PropertyInvitation[]
-  tasks       Task[]
-  harvestLogs HarvestLog[]
+  memberships   PropertyMember[]
+  invitations   PropertyInvitation[]
+  tasks         Task[]
+  harvestLogs   HarvestLog[]
+  seedStartLogs SeedStartLog[]
 }
 
 enum PropertyRole {
@@ -48,7 +49,10 @@ model Property {
   calendarEvents CalendarEvent[]
   tasks          Task[]
   photos         Photo[]
-  inventoryItems InventoryItem[]
+  inventoryItems  InventoryItem[]
+  seedInventory   SeedInventory[]
+  seedStartLogs   SeedStartLog[]
+  harvestLogs     HarvestLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -324,6 +328,8 @@ model Plant {
   companionsA    CompanionPlant[] @relation("CompanionA")
   companionsB    CompanionPlant[] @relation("CompanionB")
   seedInventory  SeedInventory[]
+  seedStartLogs  SeedStartLog[]
+  harvestLogs    HarvestLog[]
   calendarEvents CalendarEvent[]
   photos         Photo[]          @relation("PlantPhotos")
 
@@ -633,17 +639,50 @@ model CompostLog {
 // ─── INVENTORY ──────────────────────────────
 
 model SeedInventory {
-  id            String @id @default(uuid())
-  quantity      Int?
-  unit          String?
-  supplier      String?
-  yearPurchased Int?
-  expiryYear    Int?
-  lotNumber     String?
-  notes         String?
+  id              String  @id @default(uuid())
+  quantity        Int?
+  unit            String?
+  supplier        String?
+  yearPurchased   Int?
+  expiryYear      Int?
+  lotNumber       String?
+  germinationRate Int?
+  storageLocation String?
+  seedSource      String?    // PURCHASED | SAVED | TRADED | GIFTED
+  notes           String?
 
-  plant   Plant  @relation(fields: [plantId], references: [id])
-  plantId String
+  plant      Plant    @relation(fields: [plantId], references: [id])
+  plantId    String
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+
+  startLogs SeedStartLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SeedStartLog {
+  id               String   @id @default(uuid())
+  date             String   // YYYY-MM-DD
+  cellsStarted     Int
+  cellsSprouted    Int?
+  sproutedDate     String?  // YYYY-MM-DD
+  transplantedDate String?  // YYYY-MM-DD
+  medium           String?
+  location         String?
+  heatMat          Boolean  @default(false)
+  lightHours       Int?
+  notes            String?
+
+  seedInventory   SeedInventory @relation(fields: [seedInventoryId], references: [id])
+  seedInventoryId String
+  plant           Plant         @relation(fields: [plantId], references: [id])
+  plantId         String
+  property        Property      @relation(fields: [propertyId], references: [id])
+  propertyId      String
+  user            User          @relation(fields: [userId], references: [id])
+  userId          String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -679,14 +718,18 @@ enum InventoryCategory {
 // ─── HARVEST TRACKING ───────────────────────
 
 model HarvestLog {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   date        String
   quantityLbs Float?
   notes       String?
 
-  planting   Planting @relation(fields: [plantingId], references: [id])
-  plantingId String
-  user       User     @relation(fields: [userId], references: [id])
+  planting   Planting? @relation(fields: [plantingId], references: [id])
+  plantingId String?
+  plant      Plant?    @relation(fields: [plantId], references: [id])
+  plantId    String?
+  property   Property  @relation(fields: [propertyId], references: [id])
+  propertyId String
+  user       User      @relation(fields: [userId], references: [id])
   userId     String
 
   photos Photo[]

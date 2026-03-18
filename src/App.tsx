@@ -7,6 +7,8 @@ import {
   Grid3X3,
   CalendarDays,
   CheckSquare,
+  Flower2,
+  Apple,
   Settings,
   LogOut,
   Menu,
@@ -18,9 +20,11 @@ import "./App.css";
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/plants", label: "Plants", icon: Sprout },
+  { path: "/seeds", label: "Seeds", icon: Flower2 },
   { path: "/garden", label: "Garden", icon: Grid3X3 },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/tasks", label: "Tasks", icon: CheckSquare },
+  { path: "/harvest", label: "Harvest", icon: Apple },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -112,6 +116,14 @@ function MobileHeader() {
       </button>
       {menuOpen && (
         <div className="absolute top-14 right-0 left-0 z-50 border-b border-neutral-200 bg-white p-4 shadow-lg">
+          <Link
+            to="/seeds"
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+          >
+            <Flower2 className="h-5 w-5" />
+            Seeds
+          </Link>
           <Link
             to="/settings"
             onClick={() => setMenuOpen(false)}
