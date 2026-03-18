@@ -19,5 +19,11 @@ node_modules/
 # Build
 dist/
 
+# Claude Code
+.claude/
+
+# CartoGopher
+bakes/
+
 # Reference docs (large files)
 wasp.txt
