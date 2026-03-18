@@ -130,6 +130,12 @@ page HarvestPage {
   component: import { HarvestPage } from "@src/pages/HarvestPage"
 }
 
+route SoilRoute { path: "/soil", to: SoilPage }
+page SoilPage {
+  authRequired: true,
+  component: import { SoilPage } from "@src/pages/SoilPage"
+}
+
 route SystemsRoute { path: "/systems", to: SystemsPage }
 page SystemsPage {
   authRequired: true,
@@ -223,6 +229,28 @@ action createSeedStartLog {
 action updateSeedStartLog {
   fn: import { updateSeedStartLog } from "@src/seeds/actions",
   entities: [SeedStartLog, PropertyMember]
+}
+
+// ─── SOIL QUERIES & ACTIONS ────────────────
+
+query getSoilTests {
+  fn: import { getSoilTests } from "@src/soil/queries",
+  entities: [SoilTest, GardenBed, PropertyMember]
+}
+
+query getAmendmentLogs {
+  fn: import { getAmendmentLogs } from "@src/soil/queries",
+  entities: [AmendmentLog, GardenBed, PropertyMember]
+}
+
+action createSoilTest {
+  fn: import { createSoilTest } from "@src/soil/actions",
+  entities: [SoilTest, PropertyMember]
+}
+
+action createAmendmentLog {
+  fn: import { createAmendmentLog } from "@src/soil/actions",
+  entities: [AmendmentLog, PropertyMember]
 }
 
 // ─── SYSTEMS QUERIES & ACTIONS ─────────────
@@ -572,7 +600,7 @@ api aiDesignBed {
   entities: [User, Plant, PlantFamily, CompanionPlant, Property, PropertyMember,
              GardenBed, BedSquare, Planting, PropertyZone, SeedInventory, HarvestLog,
              JournalEntry, AnimalGroup, Animal, EggLog, WaterSystem, CompostBin,
-             InventoryItem]
+             InventoryItem, SoilTest, AmendmentLog]
 }
 
 action saveAiApiKey {

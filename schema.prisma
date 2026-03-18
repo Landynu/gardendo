@@ -21,6 +21,8 @@ model User {
   harvestLogs    HarvestLog[]
   seedStartLogs  SeedStartLog[]
   journalEntries JournalEntry[]
+  soilTests      SoilTest[]
+  amendmentLogs  AmendmentLog[]
 }
 
 enum PropertyRole {
@@ -57,6 +59,8 @@ model Property {
   seedStartLogs   SeedStartLog[]
   harvestLogs     HarvestLog[]
   journalEntries  JournalEntry[]
+  soilTests       SoilTest[]
+  amendmentLogs   AmendmentLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -152,6 +156,8 @@ model GardenBed {
   photos         Photo[]
   designHistory  BedDesignHistory[]
   chatSessions   AiChatSession[]
+  soilTests      SoilTest[]
+  amendmentLogs  AmendmentLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -749,6 +755,43 @@ model HarvestLog {
   photos Photo[]
 
   createdAt DateTime @default(now())
+}
+
+// ─── SOIL HEALTH ────────────────────────────
+
+model SoilTest {
+  id            String     @id @default(uuid())
+  date          String     // YYYY-MM-DD
+  ph            Float?
+  nitrogen      Float?
+  phosphorus    Float?
+  potassium     Float?
+  organicMatter Float?
+  texture       String?
+  notes         String?
+  bed           GardenBed? @relation(fields: [bedId], references: [id])
+  bedId         String?
+  property      Property   @relation(fields: [propertyId], references: [id])
+  propertyId    String
+  user          User       @relation(fields: [userId], references: [id])
+  userId        String
+  createdAt     DateTime   @default(now())
+}
+
+model AmendmentLog {
+  id           String     @id @default(uuid())
+  date         String     // YYYY-MM-DD
+  amendment    String
+  quantityLbs  Float?
+  areaSqFt     Float?
+  notes        String?
+  bed          GardenBed? @relation(fields: [bedId], references: [id])
+  bedId        String?
+  property     Property   @relation(fields: [propertyId], references: [id])
+  propertyId   String
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  createdAt    DateTime   @default(now())
 }
 
 // ─── JOURNAL ────────────────────────────────

@@ -1,4 +1,12 @@
-import { useQuery, getProperties, getTasks, getCalendarEvents } from "wasp/client/operations"
+import {
+  useQuery,
+  getProperties,
+  getTasks,
+  getCalendarEvents,
+  getSeedStartingSchedule,
+  getHarvestSummary,
+  getAnimalGroups,
+} from "wasp/client/operations"
 import { Link } from "react-router"
 import {
   Sprout,
@@ -8,8 +16,13 @@ import {
   ArrowRight,
   Leaf,
   Clock,
+  Flower2,
+  Apple,
+  Egg,
+  Snowflake,
 } from "lucide-react"
 import { WeatherWidget } from "../components/WeatherWidget"
+import { differenceInDays, parse } from "date-fns"
 
 export function DashboardPage() {
   const { data: properties, isLoading: propsLoading } = useQuery(getProperties)
@@ -23,6 +36,26 @@ export function DashboardPage() {
 
   const { data: events } = useQuery(
     getCalendarEvents,
+    property ? { propertyId: property.id } : undefined,
+    { enabled: !!property }
+  )
+
+  const currentYear = new Date().getFullYear()
+
+  const { data: seedSchedule } = useQuery(
+    getSeedStartingSchedule,
+    property ? { propertyId: property.id, year: currentYear } : undefined,
+    { enabled: !!property }
+  )
+
+  const { data: harvestSummary } = useQuery(
+    getHarvestSummary,
+    property ? { propertyId: property.id, year: currentYear } : undefined,
+    { enabled: !!property }
+  )
+
+  const { data: animalGroups } = useQuery(
+    getAnimalGroups,
     property ? { propertyId: property.id } : undefined,
     { enabled: !!property }
   )
@@ -56,8 +89,37 @@ export function DashboardPage() {
 
   const upcomingTasks = (tasks ?? []).slice(0, 5)
   const upcomingEvents = (events ?? []).slice(0, 5)
-
   const zoneCount = (property as any).zones?.length ?? 0
+
+  // Seed starting stats
+  const seedsThisWeek = seedSchedule
+    ? seedSchedule.thisWeekIndoor.length + seedSchedule.thisWeekDirectSow.length
+    : 0
+  const activeTrays = seedSchedule?.activeTrays?.length ?? 0
+
+  // Harvest stats
+  const harvestLbs = harvestSummary?.totalLbs ?? 0
+
+  // Animal stats
+  const totalEggsThisWeek = (animalGroups ?? []).reduce(
+    (sum: number, g: any) => sum + (g.weeklyEggs ?? 0),
+    0
+  )
+
+  // Frost countdown
+  const today = new Date()
+  const firstFrostDate = parse(
+    `${currentYear}-${property.firstFrostDate}`,
+    "yyyy-MM-dd",
+    new Date()
+  )
+  const lastFrostDate = parse(
+    `${currentYear}-${property.lastFrostDate}`,
+    "yyyy-MM-dd",
+    new Date()
+  )
+  const daysToFirstFrost = differenceInDays(firstFrostDate, today)
+  const daysSinceLastFrost = differenceInDays(today, lastFrostDate)
 
   return (
     <div className="page-container">
@@ -69,6 +131,94 @@ export function DashboardPage() {
       {/* Weather */}
       <div className="mb-8">
         <WeatherWidget propertyId={property.id} />
+      </div>
+
+      {/* Feature Widgets — only show when data exists */}
+      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {seedsThisWeek > 0 && (
+          <Link to="/seeds/starting" className="card p-4 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-purple-50 p-2">
+                <Flower2 className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">Start This Week</p>
+                <p className="text-lg font-semibold text-neutral-900">{seedsThisWeek}</p>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {activeTrays > 0 && (
+          <Link to="/seeds/starting" className="card p-4 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-amber-50 p-2">
+                <Sprout className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">Active Trays</p>
+                <p className="text-lg font-semibold text-neutral-900">{activeTrays}</p>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {harvestLbs > 0 && (
+          <Link to="/harvest" className="card p-4 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-orange-50 p-2">
+                <Apple className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">Harvested</p>
+                <p className="text-lg font-semibold text-neutral-900">{harvestLbs} lbs</p>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {totalEggsThisWeek > 0 && (
+          <Link to="/animals" className="card p-4 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-yellow-50 p-2">
+                <Egg className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">Eggs/Week</p>
+                <p className="text-lg font-semibold text-neutral-900">{totalEggsThisWeek}</p>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {/* Frost countdown — always show during growing season */}
+        {daysSinceLastFrost >= 0 && daysToFirstFrost > 0 && (
+          <div className="card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-blue-50 p-2">
+                <Snowflake className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">To First Frost</p>
+                <p className="text-lg font-semibold text-neutral-900">{daysToFirstFrost}d</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {daysSinceLastFrost < 0 && (
+          <div className="card p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-blue-50 p-2">
+                <Snowflake className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500">Last Frost In</p>
+                <p className="text-lg font-semibold text-neutral-900">{Math.abs(daysSinceLastFrost)}d</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -229,6 +379,10 @@ export function DashboardPage() {
         <Link to="/garden" className="btn-secondary">
           <Grid3X3 className="h-4 w-4" />
           View Garden
+        </Link>
+        <Link to="/seeds/starting" className="btn-secondary">
+          <Flower2 className="h-4 w-4" />
+          Seed Starting
         </Link>
         <Link to="/calendar" className="btn-secondary">
           <CalendarDays className="h-4 w-4" />

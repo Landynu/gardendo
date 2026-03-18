@@ -508,7 +508,58 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
     sections.push(`## Recent Garden Notes\n${journalLines.join("\n")}`);
   }
 
-  // 15. Current weather (Tempest if configured, Open-Meteo as fallback/comparison)
+  // 15. Soil health for this bed
+  try {
+    const [soilTests, amendmentLogs] = await Promise.all([
+      entities.SoilTest?.findMany?.({
+        where: { propertyId, bedId },
+        orderBy: { date: "desc" },
+        take: 3,
+      }) ?? Promise.resolve([]),
+      entities.AmendmentLog?.findMany?.({
+        where: { propertyId, bedId },
+        orderBy: { date: "desc" },
+        take: 5,
+      }) ?? Promise.resolve([]),
+    ]);
+
+    const soilLines: string[] = [];
+    if (soilTests && soilTests.length > 0) {
+      const latest = soilTests[0];
+      const parts: string[] = [];
+      if (latest.ph != null) parts.push(`pH ${latest.ph}`);
+      if (latest.nitrogen != null) parts.push(`N: ${latest.nitrogen < 3 ? "low" : latest.nitrogen < 7 ? "moderate" : "high"}`);
+      if (latest.phosphorus != null) parts.push(`P: ${latest.phosphorus < 3 ? "low" : latest.phosphorus < 7 ? "moderate" : "high"}`);
+      if (latest.potassium != null) parts.push(`K: ${latest.potassium < 3 ? "low" : latest.potassium < 7 ? "moderate" : "high"}`);
+      if (latest.organicMatter != null) parts.push(`OM: ${latest.organicMatter}%`);
+      if (latest.texture) parts.push(`Texture: ${latest.texture}`);
+      soilLines.push(`Latest test (${latest.date}): ${parts.join(", ")}`);
+
+      // Soil needs summary
+      const needs: string[] = [];
+      if (latest.phosphorus != null && latest.phosphorus < 3) needs.push("phosphorus is low");
+      if (latest.nitrogen != null && latest.nitrogen < 3) needs.push("nitrogen is low");
+      if (latest.potassium != null && latest.potassium < 3) needs.push("potassium is low");
+      if (latest.ph != null && latest.ph < 5.5) needs.push("pH is very acidic — consider lime");
+      if (latest.ph != null && latest.ph > 7.5) needs.push("pH is alkaline — consider sulfur");
+      if (needs.length > 0) soilLines.push(`Soil needs: ${needs.join("; ")}`);
+    }
+
+    if (amendmentLogs && amendmentLogs.length > 0) {
+      soilLines.push("Recent amendments:");
+      for (const a of amendmentLogs.slice(0, 3)) {
+        soilLines.push(`- ${a.date}: ${a.amendment}${a.quantityLbs ? `, ${a.quantityLbs} lbs` : ""}`);
+      }
+    }
+
+    if (soilLines.length > 0) {
+      sections.push(`## Soil Health (This Bed)\n${soilLines.join("\n")}`);
+    }
+  } catch {
+    // entities not available — skip
+  }
+
+  // 16. Current weather (Tempest if configured, Open-Meteo as fallback/comparison)
   if (property.latitude && property.longitude) {
     try {
       // Always fetch Open-Meteo for regional baseline

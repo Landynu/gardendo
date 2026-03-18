@@ -18,6 +18,7 @@ import {
   X,
   Heart,
   ShieldAlert,
+  Layers,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { PlantPalette } from "../components/PlantPalette";
@@ -42,6 +43,7 @@ export function BedDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "succession">("grid");
 
   const {
     data: bed,
@@ -306,8 +308,38 @@ export function BedDetailPage() {
             ))}
           </div>
         </div>
+
+        {/* View toggle */}
+        <div className="flex rounded-lg border border-neutral-300 bg-white">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors rounded-l-lg ${
+              viewMode === "grid"
+                ? "bg-primary-600 text-white"
+                : "text-neutral-600 hover:bg-neutral-50"
+            }`}
+          >
+            <Grid3X3 className="h-4 w-4" />
+            Grid
+          </button>
+          <button
+            onClick={() => setViewMode("succession")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors rounded-r-lg ${
+              viewMode === "succession"
+                ? "bg-primary-600 text-white"
+                : "text-neutral-600 hover:bg-neutral-50"
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            Succession
+          </button>
+        </div>
       </div>
 
+      {viewMode === "succession" ? (
+        <SuccessionPlanView bed={bed} year={year} />
+      ) : (
+      <>
       {/* Main content: grid + palette */}
       <div className="flex flex-col gap-6 md:flex-row">
         {/* Left: toolbar + grid + legend + notes */}
@@ -707,6 +739,8 @@ export function BedDetailPage() {
           onClose={() => setAiPanelOpen(false)}
         />
       )}
+      </>
+      )}
     </div>
   );
 }
@@ -807,6 +841,135 @@ function CompanionSummary({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function SuccessionPlanView({ bed, year }: { bed: any; year: number }) {
+  const seasons = ["SPRING", "SUMMER", "FALL"] as const;
+
+  // Group squares by season → cell → plant
+  const seasonData = seasons.map((season) => {
+    const squares = (bed.squares ?? []).filter(
+      (sq: any) => sq.year === year && sq.season === season && sq.planting?.plant
+    );
+    // Group by plant
+    const plantMap = new Map<string, { plant: any; count: number }>();
+    for (const sq of squares) {
+      const p = sq.planting.plant;
+      const existing = plantMap.get(p.id);
+      if (existing) {
+        existing.count++;
+      } else {
+        plantMap.set(p.id, { plant: p, count: 1 });
+      }
+    }
+    return {
+      season,
+      label: season.charAt(0) + season.slice(1).toLowerCase(),
+      totalCells: squares.length,
+      plants: Array.from(plantMap.values()).sort((a, b) => b.count - a.count),
+    };
+  });
+
+  const hasAnyData = seasonData.some((s) => s.totalCells > 0);
+
+  return (
+    <div>
+      <h2 className="mb-4 text-lg font-semibold text-neutral-800">
+        Succession Plan — {year}
+      </h2>
+
+      {!hasAnyData ? (
+        <div className="card flex flex-col items-center justify-center py-12 text-center">
+          <Layers className="mb-3 h-10 w-10 text-neutral-300" />
+          <p className="text-neutral-500">No plantings for {year} yet.</p>
+          <p className="mt-1 text-sm text-neutral-400">
+            Switch to Grid view and place plants in each season.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          {seasonData.map((sd) => (
+            <div key={sd.season} className="card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-semibold text-neutral-800">{sd.label}</h3>
+                <span className="text-xs text-neutral-400">
+                  {sd.totalCells} cell{sd.totalCells !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {sd.plants.length === 0 ? (
+                <p className="py-4 text-center text-sm text-neutral-400">
+                  No plants placed
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {sd.plants.map(({ plant, count }) => (
+                    <div
+                      key={plant.id}
+                      className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        {plant.sqftColor && (
+                          <div
+                            className="h-4 w-4 rounded"
+                            style={{ backgroundColor: plant.sqftColor }}
+                          />
+                        )}
+                        <span className="text-sm font-medium text-neutral-800">
+                          {plant.name}
+                          {plant.variety && (
+                            <span className="ml-1 text-neutral-500">({plant.variety})</span>
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-xs text-neutral-500">
+                        {count} sq ft
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Show family transitions for crop rotation hints */}
+              {sd.plants.length > 0 && (
+                <div className="mt-3 border-t border-neutral-100 pt-2">
+                  <p className="text-xs text-neutral-400">
+                    Families: {[...new Set(sd.plants.map(({ plant }) => plant.family?.name).filter(Boolean))].join(", ") || "—"}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Transition arrows between seasons */}
+      {hasAnyData && (
+        <div className="mt-6 card p-4">
+          <h3 className="mb-3 text-sm font-semibold text-neutral-700">Succession Timeline</h3>
+          <div className="flex items-center justify-center gap-2 text-sm">
+            {seasonData.map((sd, i) => (
+              <span key={sd.season} className="flex items-center gap-2">
+                <span className={`rounded-lg px-3 py-1.5 ${
+                  sd.totalCells > 0
+                    ? "bg-primary-100 font-medium text-primary-700"
+                    : "bg-neutral-100 text-neutral-400"
+                }`}>
+                  {sd.label}
+                  {sd.totalCells > 0 && (
+                    <span className="ml-1 text-xs">({sd.plants.length} plants)</span>
+                  )}
+                </span>
+                {i < seasonData.length - 1 && (
+                  <span className="text-neutral-300">→</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
