@@ -16,6 +16,7 @@ model User {
   aiProvider    String    @default("anthropic") // "anthropic" or "openrouter"
 
   memberships PropertyMember[]
+  invitations PropertyInvitation[]
   tasks       Task[]
   harvestLogs HarvestLog[]
 }
@@ -39,6 +40,7 @@ model Property {
   aiSystemPrompt String?   // Custom AI system prompt override
 
   members        PropertyMember[]
+  invitations    PropertyInvitation[]
   zones          PropertyZone[]
   waterSystems   WaterSystem[]
   animals        AnimalGroup[]
@@ -64,6 +66,23 @@ model PropertyMember {
   createdAt  DateTime @default(now())
 
   @@unique([userId, propertyId])
+}
+
+model PropertyInvitation {
+  id              String       @id @default(uuid())
+  email           String
+  property        Property     @relation(fields: [propertyId], references: [id])
+  propertyId      String
+  invitedBy       User         @relation(fields: [invitedByUserId], references: [id])
+  invitedByUserId String
+  token           String       @unique @default(uuid())
+  role            PropertyRole @default(MEMBER)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+
+  createdAt       DateTime     @default(now())
+
+  @@unique([email, propertyId])
 }
 
 model PropertyZone {

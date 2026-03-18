@@ -130,6 +130,11 @@ page SettingsPage {
   component: import { SettingsPage } from "@src/pages/SettingsPage"
 }
 
+route AcceptInviteRoute { path: "/accept-invite", to: AcceptInvitePage }
+page AcceptInvitePage {
+  component: import { AcceptInvitePage } from "@src/pages/AcceptInvitePage"
+}
+
 // ─── PLANT QUERIES & ACTIONS ────────────────
 
 query getPlants {
@@ -172,6 +177,26 @@ action createProperty {
 action updateProperty {
   fn: import { updateProperty } from "@src/property/actions",
   entities: [Property, PropertyMember]
+}
+
+query getPendingInvitations {
+  fn: import { getPendingInvitations } from "@src/property/inviteQueries",
+  entities: [PropertyInvitation, PropertyMember]
+}
+
+action inviteToProperty {
+  fn: import { inviteToProperty } from "@src/property/inviteActions",
+  entities: [PropertyInvitation, PropertyMember, Property]
+}
+
+action acceptInvitation {
+  fn: import { acceptInvitation } from "@src/property/inviteActions",
+  entities: [PropertyInvitation, PropertyMember, User]
+}
+
+action cancelInvitation {
+  fn: import { cancelInvitation } from "@src/property/inviteActions",
+  entities: [PropertyInvitation, PropertyMember]
 }
 
 // ─── ZONE & BED QUERIES & ACTIONS ───────────

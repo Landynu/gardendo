@@ -7,6 +7,9 @@ import {
   saveAiApiKey,
   deleteAiApiKey,
   updateAiSystemPrompt,
+  getPendingInvitations,
+  inviteToProperty,
+  cancelInvitation,
 } from "wasp/client/operations"
 import {
   Leaf,
@@ -23,6 +26,8 @@ import {
   Trash2,
   RotateCcw,
   Bot,
+  Mail,
+  X,
 } from "lucide-react"
 import { useState, lazy, Suspense } from "react"
 import { DEFAULT_SYSTEM_PROMPT } from "../ai/prompts"
@@ -160,50 +165,10 @@ export function SettingsPage() {
             </div>
           )}
 
-          <div className="card p-5">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-neutral-900">
-              <Users className="h-5 w-5 text-accent-600" />
-              Members
-            </h2>
-            {(property as any).members &&
-            (property as any).members.length > 0 ? (
-              <div className="space-y-2">
-                {(property as any).members.map((member: any) => {
-                  const email = member.user?.auth?.identities?.[0]?.providerUserId
-                  const displayName = email ?? member.userId.slice(0, 8)
-                  const initials = email
-                    ? email.slice(0, 2).toUpperCase()
-                    : member.userId.slice(0, 2).toUpperCase()
-                  return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-lg border border-neutral-100 p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-                        {initials}
-                      </div>
-                      <span className="text-sm text-neutral-700">
-                        {displayName}
-                      </span>
-                    </div>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        member.role === "OWNER"
-                          ? "bg-accent-100 text-accent-700"
-                          : "bg-neutral-100 text-neutral-600"
-                      }`}
-                    >
-                      {member.role.toLowerCase()}
-                    </span>
-                  </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-400">No members found</p>
-            )}
-          </div>
+          <MembersCard
+            propertyId={property!.id}
+            members={(property as any).members ?? []}
+          />
 
           <div className="card p-5">
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
@@ -461,6 +426,183 @@ function AiSystemPromptCard({
           <span className="text-sm text-green-600">Saved!</span>
         )}
       </div>
+    </div>
+  )
+}
+
+function MembersCard({
+  propertyId,
+  members,
+}: {
+  propertyId: string
+  members: any[]
+}) {
+  const { data: pendingInvites } = useQuery(getPendingInvitations, { propertyId })
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviting, setInviting] = useState(false)
+  const [showInviteForm, setShowInviteForm] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+
+  // Check if current user is owner
+  const isOwner = members.some(
+    (m: any) => m.role === "OWNER",
+  )
+
+  async function handleInvite() {
+    if (!inviteEmail.trim()) return
+    setInviting(true)
+    setError("")
+    setSuccess("")
+    try {
+      await inviteToProperty({ email: inviteEmail.trim(), propertyId })
+      setSuccess(`Invitation sent to ${inviteEmail.trim()}`)
+      setInviteEmail("")
+      setShowInviteForm(false)
+      setTimeout(() => setSuccess(""), 5000)
+    } catch (err: any) {
+      setError(err.message || "Failed to send invitation")
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  async function handleCancel(invitationId: string) {
+    try {
+      await cancelInvitation({ invitationId, propertyId })
+    } catch (err: any) {
+      setError(err.message || "Failed to cancel invitation")
+    }
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-900">
+          <Users className="h-5 w-5 text-accent-600" />
+          Members
+        </h2>
+        {isOwner && !showInviteForm && (
+          <button
+            onClick={() => setShowInviteForm(true)}
+            className="btn-secondary text-sm"
+          >
+            <Mail className="h-4 w-4" />
+            Invite
+          </button>
+        )}
+      </div>
+
+      {/* Invite form */}
+      {showInviteForm && (
+        <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-primary-800">Invite Member</span>
+            <button onClick={() => setShowInviteForm(false)} className="text-primary-400 hover:text-primary-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="email@example.com"
+              onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+              className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            />
+            <button
+              onClick={handleInvite}
+              disabled={inviting || !inviteEmail.trim()}
+              className="btn-primary"
+            >
+              {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-primary-600">
+            They'll receive an email with a link to join. Expires in 7 days.
+          </p>
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Current members */}
+      {members.length > 0 ? (
+        <div className="space-y-2">
+          {members.map((member: any) => {
+            const email = member.user?.auth?.identities?.[0]?.providerUserId
+            const displayName = email ?? member.userId.slice(0, 8)
+            const initials = email
+              ? email.slice(0, 2).toUpperCase()
+              : member.userId.slice(0, 2).toUpperCase()
+            return (
+              <div
+                key={member.id}
+                className="flex items-center justify-between rounded-lg border border-neutral-100 p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+                    {initials}
+                  </div>
+                  <span className="text-sm text-neutral-700">{displayName}</span>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    member.role === "OWNER"
+                      ? "bg-accent-100 text-accent-700"
+                      : "bg-neutral-100 text-neutral-600"
+                  }`}
+                >
+                  {member.role.toLowerCase()}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-400">No members found</p>
+      )}
+
+      {/* Pending invitations */}
+      {pendingInvites && (pendingInvites as any[]).length > 0 && (
+        <div className="mt-4">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-neutral-500">
+            <Clock className="h-3.5 w-3.5" />
+            Pending Invitations
+          </h3>
+          <div className="space-y-2">
+            {(pendingInvites as any[]).map((invite: any) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between rounded-lg border border-dashed border-neutral-200 bg-neutral-50 p-3"
+              >
+                <div>
+                  <span className="text-sm text-neutral-700">{invite.email}</span>
+                  <span className="ml-2 text-xs text-neutral-400">
+                    expires {new Date(invite.expiresAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleCancel(invite.id)}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
