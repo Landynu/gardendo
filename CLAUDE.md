@@ -12,7 +12,7 @@ Built with WASP 0.21, React 19, TypeScript, Tailwind CSS v4, PostgreSQL.
 - **Backend**: Node.js via WASP, Prisma ORM
 - **Database**: PostgreSQL (SQLite not used)
 - **Jobs**: PgBoss (declared in `main.wasp`)
-- **Auth**: WASP email auth (email/password with verification)
+- **Auth**: WASP email auth (email/password with verification via Postmark SMTP)
 
 ## File Structure
 ```

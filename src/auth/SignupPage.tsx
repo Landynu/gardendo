@@ -10,13 +10,9 @@ export function SignupPage() {
           {
             name: "username",
             type: "input",
-            label: "Username",
+            label: "Display Name",
             validations: {
-              required: "Username is required",
-              minLength: {
-                value: 6,
-                message: "Username must be at least 6 characters long",
-              },
+              required: "Display name is required",
             },
           },
         ]}

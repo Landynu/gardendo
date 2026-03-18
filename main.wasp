@@ -11,31 +11,30 @@ app gardendo {
   auth: {
     userEntity: User,
     methods: {
-      usernameAndPassword: {
+      email: {
+        fromField: {
+          name: "GardenDo",
+          email: "garden@landyn.me"
+        },
         userSignupFields: import { userSignupFields } from "@src/auth/userSignupFields",
+        emailVerification: {
+          clientRoute: EmailVerificationRoute,
+        },
+        passwordReset: {
+          clientRoute: PasswordResetRoute,
+        }
       },
-      // TODO: Switch to Postmark email auth when ready
-      // email: {
-      //   fromField: {
-      //     name: "GardenDo",
-      //     email: "hello@gardendo.app"
-      //   },
-      //   userSignupFields: import { userSignupFields } from "@src/auth/userSignupFields",
-      //   emailVerification: {
-      //     clientRoute: EmailVerificationRoute,
-      //   },
-      //   passwordReset: {
-      //     clientRoute: PasswordResetRoute,
-      //   }
-      // },
     },
     onAuthSucceededRedirectTo: "/",
     onAuthFailedRedirectTo: "/login",
   },
-  // TODO: Enable when switching to email auth
-  // emailSender: {
-  //   provider: Postmark,
-  // },
+  emailSender: {
+    provider: SMTP,
+    defaultFrom: {
+      name: "GardenDo",
+      email: "garden@landyn.me"
+    },
+  },
   client: {
     rootComponent: import { App } from "@src/App",
   },
@@ -59,21 +58,20 @@ page SignupPage {
   component: import { SignupPage } from "@src/auth/SignupPage"
 }
 
-// TODO: Uncomment when switching to email auth
-// route RequestPasswordResetRoute { path: "/request-password-reset", to: RequestPasswordResetPage }
-// page RequestPasswordResetPage {
-//   component: import { RequestPasswordResetPage } from "@src/auth/RequestPasswordResetPage",
-// }
-//
-// route PasswordResetRoute { path: "/password-reset", to: PasswordResetPage }
-// page PasswordResetPage {
-//   component: import { PasswordResetPage } from "@src/auth/PasswordResetPage",
-// }
-//
-// route EmailVerificationRoute { path: "/email-verification", to: EmailVerificationPage }
-// page EmailVerificationPage {
-//   component: import { EmailVerificationPage } from "@src/auth/EmailVerificationPage",
-// }
+route RequestPasswordResetRoute { path: "/request-password-reset", to: RequestPasswordResetPage }
+page RequestPasswordResetPage {
+  component: import { RequestPasswordResetPage } from "@src/auth/RequestPasswordResetPage",
+}
+
+route PasswordResetRoute { path: "/password-reset", to: PasswordResetPage }
+page PasswordResetPage {
+  component: import { PasswordResetPage } from "@src/auth/PasswordResetPage",
+}
+
+route EmailVerificationRoute { path: "/email-verification", to: EmailVerificationPage }
+page EmailVerificationPage {
+  component: import { EmailVerificationPage } from "@src/auth/EmailVerificationPage",
+}
 
 // ─── APP ROUTES ─────────────────────────────
 
