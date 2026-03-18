@@ -9,6 +9,7 @@ import {
   Leaf,
   Clock,
 } from "lucide-react"
+import { WeatherWidget } from "../components/WeatherWidget"
 
 export function DashboardPage() {
   const { data: properties, isLoading: propsLoading } = useQuery(getProperties)
@@ -63,6 +64,11 @@ export function DashboardPage() {
       <div className="mb-8">
         <h1 className="page-title">Welcome back</h1>
         <p className="mt-1 text-neutral-500">{property.name}</p>
+      </div>
+
+      {/* Weather */}
+      <div className="mb-8">
+        <WeatherWidget propertyId={property.id} />
       </div>
 
       {/* Quick Stats */}

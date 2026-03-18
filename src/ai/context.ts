@@ -40,7 +40,7 @@ export async function buildBedDesignContext(
   season: string,
 ): Promise<{ contextText: string; plantLookup: Record<string, PlantRow> }> {
   // Fetch all data in parallel
-  const [property, bed, allPlants, companions, plantedThisYear, currentBedSquares, seedInventory, harvestLogs] =
+  const [property, bed, allPlants, companions, plantedThisYear, currentBedSquares, seedInventory, harvestLogs, journalEntries] =
     await Promise.all([
       entities.Property.findUnique({ where: { id: propertyId } }),
       entities.GardenBed.findUnique({
@@ -92,6 +92,12 @@ export async function buildBedDesignContext(
       entities.SeedInventory?.findMany?.({
         where: { propertyId },
         include: { plant: { select: { id: true, name: true, variety: true } } },
+      }).catch(() => []) ?? Promise.resolve([]),
+      // Journal entries for this property (recent)
+      entities.JournalEntry?.findMany?.({
+        where: { propertyId },
+        orderBy: { date: "desc" },
+        take: 5,
       }).catch(() => []) ?? Promise.resolve([]),
       // Harvest logs for this property (last 2 years)
       entities.HarvestLog?.findMany?.({
@@ -403,6 +409,120 @@ ${plantsWithoutSeeds.length > 0 ? `\nPlants with NO seeds in stock: ${plantsWith
 
     if (harvestLines.length > 0) {
       sections.push(`## Harvest History\n${harvestLines.join("\n")}`);
+    }
+  }
+
+  // 11. Livestock
+  try {
+    const animalGroups = await (entities.AnimalGroup?.findMany?.({
+      where: { propertyId },
+      include: {
+        animals: { where: { isActive: true }, select: { id: true } },
+        eggLogs: { orderBy: { date: "desc" }, take: 7 },
+      },
+    }) ?? Promise.resolve([]));
+
+    if (animalGroups && animalGroups.length > 0) {
+      const livestockLines = animalGroups.map((g: any) => {
+        const count = g.animals.length;
+        const weeklyEggs = g.eggLogs.reduce((sum: number, l: any) => sum + l.count, 0);
+        let line = `- ${g.name} (${g.animalType.toLowerCase()}): ${count} animals`;
+        if (weeklyEggs > 0) line += `, ~${weeklyEggs} eggs/week`;
+        return line;
+      });
+      sections.push(`## Livestock\n${livestockLines.join("\n")}`);
+    }
+  } catch {
+    // AnimalGroup entity not available — skip
+  }
+
+  // 12. Water & Compost
+  try {
+    const [waterSystems, compostBins] = await Promise.all([
+      entities.WaterSystem?.findMany?.({
+        where: { propertyId },
+        include: { logs: { orderBy: { date: "desc" }, take: 1 } },
+      }) ?? Promise.resolve([]),
+      entities.CompostBin?.findMany?.({
+        where: { propertyId },
+        include: { logs: { orderBy: { date: "desc" }, take: 1 } },
+      }) ?? Promise.resolve([]),
+    ]);
+
+    const resourceLines: string[] = [];
+    if (waterSystems && waterSystems.length > 0) {
+      resourceLines.push("### Water Systems");
+      for (const ws of waterSystems) {
+        const lastLog = (ws as any).logs?.[0];
+        let line = `- ${ws.name}: ${ws.sourceType.toLowerCase()}`;
+        if (ws.capacityGallons) line += `, ${ws.capacityGallons} gal capacity`;
+        if (lastLog?.levelGallons != null) line += `, currently at ${lastLog.levelGallons} gal`;
+        resourceLines.push(line);
+      }
+    }
+    if (compostBins && compostBins.length > 0) {
+      resourceLines.push("### Compost");
+      for (const cb of compostBins) {
+        const lastLog = (cb as any).logs?.[0];
+        let line = `- ${cb.name}`;
+        if ((cb as any).type) line += ` (${(cb as any).type})`;
+        if (lastLog) {
+          line += `, last ${lastLog.action.toLowerCase().replace(/_/g, " ")} on ${lastLog.date}`;
+          if (lastLog.tempFahrenheit != null) line += ` (${lastLog.tempFahrenheit}°F)`;
+        }
+        resourceLines.push(line);
+      }
+    }
+    if (resourceLines.length > 0) {
+      sections.push(`## Water & Compost Resources\n${resourceLines.join("\n")}`);
+    }
+  } catch {
+    // entities not available — skip
+  }
+
+  // 13. Inventory (amendments & supplies)
+  try {
+    const inventoryItems = await (entities.InventoryItem?.findMany?.({
+      where: { propertyId, category: { in: ["AMENDMENT", "SUPPLY"] as any } },
+    }) ?? Promise.resolve([]));
+
+    if (inventoryItems && inventoryItems.length > 0) {
+      const invLines = inventoryItems.map((item: any) => {
+        let line = `- ${item.name}`;
+        if (item.quantity != null) line += `: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`;
+        return line;
+      });
+      sections.push(`## Available Amendments & Supplies\n${invLines.join("\n")}`);
+    }
+  } catch {
+    // entity not available — skip
+  }
+
+  // 14. Recent journal notes
+  if (journalEntries && journalEntries.length > 0) {
+    const journalLines = journalEntries.map((je: any) => {
+      const preview = je.content.length > 120 ? je.content.substring(0, 120) + "..." : je.content;
+      return `- ${je.date}: "${preview}"`;
+    });
+    sections.push(`## Recent Garden Notes\n${journalLines.join("\n")}`);
+  }
+
+  // 12. Current weather
+  if (property.latitude && property.longitude) {
+    try {
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${property.latitude}&longitude=${property.longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=celsius&timezone=${encodeURIComponent(property.timezone)}&forecast_days=3`;
+      const res = await fetch(weatherUrl);
+      if (res.ok) {
+        const w = await res.json();
+        const frostRisk = w.daily.temperature_2m_min.some((t: number) => t <= 0);
+        sections.push(`## Current Weather
+- Today: ${Math.round(w.current.temperature_2m)}°C
+- 3-day highs: ${w.daily.temperature_2m_max.map((t: number) => Math.round(t) + "°C").join(", ")}
+- 3-day lows: ${w.daily.temperature_2m_min.map((t: number) => Math.round(t) + "°C").join(", ")}
+- Frost risk: ${frostRisk ? "YES — overnight low at or below 0°C" : "No"}`);
+      }
+    } catch {
+      // Weather fetch failed — skip section
     }
   }
 

@@ -15,11 +15,12 @@ model User {
   aiApiKey      String?   // Encrypted API key (AES-256-GCM)
   aiProvider    String    @default("anthropic") // "anthropic" or "openrouter"
 
-  memberships   PropertyMember[]
-  invitations   PropertyInvitation[]
-  tasks         Task[]
-  harvestLogs   HarvestLog[]
-  seedStartLogs SeedStartLog[]
+  memberships    PropertyMember[]
+  invitations    PropertyInvitation[]
+  tasks          Task[]
+  harvestLogs    HarvestLog[]
+  seedStartLogs  SeedStartLog[]
+  journalEntries JournalEntry[]
 }
 
 enum PropertyRole {
@@ -53,6 +54,7 @@ model Property {
   seedInventory   SeedInventory[]
   seedStartLogs   SeedStartLog[]
   harvestLogs     HarvestLog[]
+  journalEntries  JournalEntry[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -521,6 +523,16 @@ model AnimalGroup {
 
 enum AnimalType {
   CHICKEN
+  DUCK
+  GOOSE
+  TURKEY
+  GOAT
+  SHEEP
+  PIG
+  COW
+  RABBIT
+  BEE
+  OTHER
 }
 
 model Animal {
@@ -737,6 +749,25 @@ model HarvestLog {
   createdAt DateTime @default(now())
 }
 
+// ─── JOURNAL ────────────────────────────────
+
+model JournalEntry {
+  id           String   @id @default(uuid())
+  date         String   // YYYY-MM-DD
+  content      String
+  weatherNotes String?
+  mood         String?  // great | good | okay | tough
+  property     Property @relation(fields: [propertyId], references: [id])
+  propertyId   String
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  photos       Photo[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([propertyId, date, userId])
+}
+
 // ─── PHOTOS ─────────────────────────────────
 
 model Photo {
@@ -757,8 +788,10 @@ model Photo {
   animalId     String?
   harvestLog   HarvestLog?    @relation(fields: [harvestLogId], references: [id])
   harvestLogId String?
-  inventory    InventoryItem? @relation(fields: [inventoryId], references: [id])
-  inventoryId  String?
+  inventory       InventoryItem? @relation(fields: [inventoryId], references: [id])
+  inventoryId     String?
+  journalEntry    JournalEntry?  @relation(fields: [journalEntryId], references: [id])
+  journalEntryId  String?
   plant           Plant?   @relation("PlantPhotos", fields: [plantId], references: [id])
   plantId         String?
   displayForPlant Plant?   @relation("PlantDisplayPhoto")

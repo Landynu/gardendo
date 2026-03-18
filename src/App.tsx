@@ -9,6 +9,10 @@ import {
   CheckSquare,
   Flower2,
   Apple,
+  BookOpen,
+  Bird,
+  Droplets,
+  Package,
   Settings,
   LogOut,
   Menu,
@@ -25,6 +29,10 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/tasks", label: "Tasks", icon: CheckSquare },
   { path: "/harvest", label: "Harvest", icon: Apple },
+  { path: "/journal", label: "Journal", icon: BookOpen },
+  { path: "/animals", label: "Animals", icon: Bird },
+  { path: "/systems", label: "Systems", icon: Droplets },
+  { path: "/inventory", label: "Inventory", icon: Package },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -130,6 +130,36 @@ page HarvestPage {
   component: import { HarvestPage } from "@src/pages/HarvestPage"
 }
 
+route SystemsRoute { path: "/systems", to: SystemsPage }
+page SystemsPage {
+  authRequired: true,
+  component: import { SystemsPage } from "@src/pages/SystemsPage"
+}
+
+route InventoryRoute { path: "/inventory", to: InventoryPage }
+page InventoryPage {
+  authRequired: true,
+  component: import { InventoryPage } from "@src/pages/InventoryPage"
+}
+
+route AnimalsRoute { path: "/animals", to: AnimalsPage }
+page AnimalsPage {
+  authRequired: true,
+  component: import { AnimalsPage } from "@src/pages/AnimalsPage"
+}
+
+route AnimalGroupDetailRoute { path: "/animals/:groupId", to: AnimalGroupDetailPage }
+page AnimalGroupDetailPage {
+  authRequired: true,
+  component: import { AnimalGroupDetailPage } from "@src/pages/AnimalGroupDetailPage"
+}
+
+route JournalRoute { path: "/journal", to: JournalPage }
+page JournalPage {
+  authRequired: true,
+  component: import { JournalPage } from "@src/pages/JournalPage"
+}
+
 route SeedInventoryRoute { path: "/seeds", to: SeedInventoryPage }
 page SeedInventoryPage {
   authRequired: true,
@@ -193,6 +223,109 @@ action createSeedStartLog {
 action updateSeedStartLog {
   fn: import { updateSeedStartLog } from "@src/seeds/actions",
   entities: [SeedStartLog, PropertyMember]
+}
+
+// ─── SYSTEMS QUERIES & ACTIONS ─────────────
+
+query getWaterSystems {
+  fn: import { getWaterSystems } from "@src/systems/queries",
+  entities: [WaterSystem, WaterLog, PropertyMember]
+}
+
+query getCompostBins {
+  fn: import { getCompostBins } from "@src/systems/queries",
+  entities: [CompostBin, CompostLog, PropertyMember]
+}
+
+action createWaterSystem {
+  fn: import { createWaterSystem } from "@src/systems/actions",
+  entities: [WaterSystem, PropertyMember]
+}
+
+action createWaterLog {
+  fn: import { createWaterLog } from "@src/systems/actions",
+  entities: [WaterLog, WaterSystem, PropertyMember]
+}
+
+action createCompostBin {
+  fn: import { createCompostBin } from "@src/systems/actions",
+  entities: [CompostBin, PropertyMember]
+}
+
+action createCompostLog {
+  fn: import { createCompostLog } from "@src/systems/actions",
+  entities: [CompostLog, CompostBin, PropertyMember]
+}
+
+// ─── INVENTORY QUERIES & ACTIONS ──────────
+
+query getInventoryItems {
+  fn: import { getInventoryItems } from "@src/inventory/queries",
+  entities: [InventoryItem, PropertyMember]
+}
+
+action createInventoryItem {
+  fn: import { createInventoryItem } from "@src/inventory/actions",
+  entities: [InventoryItem, PropertyMember]
+}
+
+action updateInventoryItem {
+  fn: import { updateInventoryItem } from "@src/inventory/actions",
+  entities: [InventoryItem, PropertyMember]
+}
+
+action deleteInventoryItem {
+  fn: import { deleteInventoryItem } from "@src/inventory/actions",
+  entities: [InventoryItem, PropertyMember]
+}
+
+// ─── ANIMAL QUERIES & ACTIONS ──────────────
+
+query getAnimalGroups {
+  fn: import { getAnimalGroups } from "@src/animals/queries",
+  entities: [AnimalGroup, Animal, EggLog, PropertyMember]
+}
+
+query getAnimalGroupById {
+  fn: import { getAnimalGroupById } from "@src/animals/queries",
+  entities: [AnimalGroup, Animal, AnimalHealthRecord, EggLog, PropertyMember]
+}
+
+action createAnimalGroup {
+  fn: import { createAnimalGroup } from "@src/animals/actions",
+  entities: [AnimalGroup, PropertyMember]
+}
+
+action createAnimal {
+  fn: import { createAnimal } from "@src/animals/actions",
+  entities: [Animal, AnimalGroup, PropertyMember]
+}
+
+action createHealthRecord {
+  fn: import { createHealthRecord } from "@src/animals/actions",
+  entities: [AnimalHealthRecord, Animal, AnimalGroup, PropertyMember]
+}
+
+action createEggLog {
+  fn: import { createEggLog } from "@src/animals/actions",
+  entities: [EggLog, AnimalGroup, PropertyMember]
+}
+
+// ─── JOURNAL QUERIES & ACTIONS ─────────────
+
+query getJournalEntries {
+  fn: import { getJournalEntries } from "@src/journal/queries",
+  entities: [JournalEntry, PropertyMember]
+}
+
+action createJournalEntry {
+  fn: import { createJournalEntry } from "@src/journal/actions",
+  entities: [JournalEntry, PropertyMember]
+}
+
+action deleteJournalEntry {
+  fn: import { deleteJournalEntry } from "@src/journal/actions",
+  entities: [JournalEntry, PropertyMember]
 }
 
 // ─── HARVEST QUERIES & ACTIONS ─────────────
@@ -308,6 +441,13 @@ action saveBedSquares {
   entities: [GardenBed, BedSquare, Planting, Plant, PropertyMember]
 }
 
+// ─── WEATHER ───────────────────────────────
+
+query getWeather {
+  fn: import { getWeather } from "@src/weather/queries",
+  entities: [Property, PropertyMember]
+}
+
 // ─── CALENDAR QUERIES & ACTIONS ─────────────
 
 query getCalendarEvents {
@@ -410,7 +550,9 @@ api aiDesignBed {
   httpRoute: (POST, "/api/ai/design-bed"),
   auth: true,
   entities: [User, Plant, PlantFamily, CompanionPlant, Property, PropertyMember,
-             GardenBed, BedSquare, Planting, PropertyZone, SeedInventory, HarvestLog]
+             GardenBed, BedSquare, Planting, PropertyZone, SeedInventory, HarvestLog,
+             JournalEntry, AnimalGroup, Animal, EggLog, WaterSystem, CompostBin,
+             InventoryItem]
 }
 
 action saveAiApiKey {
