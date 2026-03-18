@@ -10,7 +10,7 @@ import { requirePropertyMember } from "../lib/auth";
 
 // ─── API KEY MANAGEMENT ────────────────────
 
-type SaveKeyArgs = { apiKey: string };
+type SaveKeyArgs = { apiKey: string; provider: string };
 
 export const saveAiApiKey: SaveAiApiKey<SaveKeyArgs, void> = async (
   args,
@@ -19,19 +19,28 @@ export const saveAiApiKey: SaveAiApiKey<SaveKeyArgs, void> = async (
   if (!context.user) throw new HttpError(401);
 
   const key = args.apiKey.trim();
-  if (!key.startsWith("sk-ant-")) {
-    throw new HttpError(400, "Invalid Anthropic API key format");
+  const provider = args.provider === "openrouter" ? "openrouter" : "anthropic";
+
+  // Validate key format
+  if (provider === "anthropic" && !key.startsWith("sk-ant-")) {
+    throw new HttpError(400, "Invalid Anthropic API key format (should start with sk-ant-)");
+  }
+  if (provider === "openrouter" && !key.startsWith("sk-or-")) {
+    throw new HttpError(400, "Invalid OpenRouter API key format (should start with sk-or-)");
   }
 
   const encrypted = encrypt(key);
 
   await context.entities.User.update({
     where: { id: context.user.id },
-    data: { aiApiKey: encrypted },
+    data: { aiApiKey: encrypted, aiProvider: provider },
   });
 };
 
-type KeyStatusResult = { hasKey: boolean; keyHint: string | null };
+type KeyStatusResult = {
+  hasKey: boolean;
+  provider: string;
+};
 
 export const getAiKeyStatus: GetAiKeyStatus<void, KeyStatusResult> = async (
   _args,
@@ -41,16 +50,14 @@ export const getAiKeyStatus: GetAiKeyStatus<void, KeyStatusResult> = async (
 
   const user = await context.entities.User.findUnique({
     where: { id: context.user.id },
-    select: { aiApiKey: true },
+    select: { aiApiKey: true, aiProvider: true },
   });
 
   if (!user?.aiApiKey) {
-    return { hasKey: false, keyHint: null };
+    return { hasKey: false, provider: "anthropic" };
   }
 
-  // Show last 4 chars of the original key as a hint
-  // We can't decrypt just for a hint, so store the hint separately or just show "configured"
-  return { hasKey: true, keyHint: "sk-ant-...configured" };
+  return { hasKey: true, provider: user.aiProvider };
 };
 
 export const deleteAiApiKey: DeleteAiApiKey<void, void> = async (
@@ -61,7 +68,7 @@ export const deleteAiApiKey: DeleteAiApiKey<void, void> = async (
 
   await context.entities.User.update({
     where: { id: context.user.id },
-    data: { aiApiKey: null },
+    data: { aiApiKey: null, aiProvider: "anthropic" },
   });
 };
 

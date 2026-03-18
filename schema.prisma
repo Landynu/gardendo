@@ -12,7 +12,8 @@ generator client {
 model User {
   id          String @id @default(uuid())
   username    String
-  aiApiKey    String?   // Encrypted Anthropic API key (AES-256-GCM)
+  aiApiKey      String?   // Encrypted API key (AES-256-GCM)
+  aiProvider    String    @default("anthropic") // "anthropic" or "openrouter"
 
   memberships PropertyMember[]
   tasks       Task[]

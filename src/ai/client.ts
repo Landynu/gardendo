@@ -1,11 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { decrypt } from "./crypto";
 
+export type AiProvider = "anthropic" | "openrouter";
+
+const PROVIDER_CONFIG: Record<AiProvider, { baseURL?: string }> = {
+  anthropic: {},
+  openrouter: {
+    baseURL: "https://openrouter.ai/api/v1",
+  },
+};
+
 /**
- * Creates an Anthropic SDK client using the user's encrypted API key.
- * Each request gets its own client instance (BYOK per user).
+ * Creates an Anthropic SDK client for the user's provider + key.
+ * OpenRouter supports the Anthropic API format natively.
  */
-export function getAnthropicClient(encryptedApiKey: string): Anthropic {
+export function getAnthropicClient(
+  encryptedApiKey: string,
+  provider: AiProvider = "anthropic",
+): Anthropic {
   const apiKey = decrypt(encryptedApiKey);
-  return new Anthropic({ apiKey });
+  const config = PROVIDER_CONFIG[provider] ?? {};
+
+  return new Anthropic({
+    apiKey,
+    ...config,
+  });
 }

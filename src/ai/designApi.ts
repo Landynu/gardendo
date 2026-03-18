@@ -1,6 +1,6 @@
 import { type AiDesignBed } from "wasp/server/api";
 import { HttpError } from "wasp/server";
-import { getAnthropicClient } from "./client";
+import { getAnthropicClient, type AiProvider } from "./client";
 import { buildBedDesignContext } from "./context";
 import { DEFAULT_SYSTEM_PROMPT, GENERATE_LAYOUT_TOOL } from "./prompts";
 import { requirePropertyMember } from "../lib/auth";
@@ -29,12 +29,12 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
   // Get user's encrypted API key
   const user = await context.entities.User.findUnique({
     where: { id: context.user.id },
-    select: { aiApiKey: true },
+    select: { aiApiKey: true, aiProvider: true },
   });
 
   if (!user?.aiApiKey) {
     res.status(400).json({
-      error: "No AI API key configured. Add your Anthropic API key in Settings.",
+      error: "No AI API key configured. Add your API key in Settings.",
     });
     return;
   }
@@ -71,7 +71,10 @@ export const aiDesignBed: AiDesignBed = async (req, res, context) => {
   res.flushHeaders();
 
   try {
-    const anthropic = getAnthropicClient(user.aiApiKey);
+    const anthropic = getAnthropicClient(
+      user.aiApiKey,
+      (user.aiProvider ?? "anthropic") as AiProvider,
+    );
 
     const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-20250514",

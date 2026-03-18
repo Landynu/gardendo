@@ -259,6 +259,7 @@ export function SettingsPage() {
 
 function AiApiKeyCard() {
   const { data: keyStatus } = useQuery(getAiKeyStatus)
+  const [provider, setProvider] = useState<string>(keyStatus?.provider ?? "anthropic")
   const [apiKey, setApiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -270,7 +271,7 @@ function AiApiKeyCard() {
     setError("")
     setSaved(false)
     try {
-      await saveAiApiKey({ apiKey: apiKey.trim() })
+      await saveAiApiKey({ apiKey: apiKey.trim(), provider })
       setApiKey("")
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -290,6 +291,8 @@ function AiApiKeyCard() {
     }
   }
 
+  const providerLabel = keyStatus?.provider === "openrouter" ? "OpenRouter" : "Anthropic"
+
   return (
     <div className="card p-5">
       <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-neutral-900">
@@ -297,15 +300,15 @@ function AiApiKeyCard() {
         AI API Key
       </h2>
       <p className="mb-4 text-sm text-neutral-500">
-        Add your Anthropic API key to enable AI-powered garden design.
-        Your key is encrypted at rest and never exposed after saving.
+        Add your API key to enable AI-powered garden design.
+        Supports Anthropic (direct) or OpenRouter. Your key is encrypted at rest.
       </p>
 
       {keyStatus?.hasKey ? (
         <div className="space-y-3">
           <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
             <Check className="h-4 w-4" />
-            API key configured
+            {providerLabel} key configured
           </div>
           <div className="flex gap-2">
             <button onClick={handleDelete} className="btn-secondary text-red-600 hover:bg-red-50">
@@ -316,11 +319,35 @@ function AiApiKeyCard() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Provider selector */}
+          <div className="flex rounded-lg border border-neutral-300 bg-white">
+            <button
+              onClick={() => setProvider("anthropic")}
+              className={`flex-1 rounded-l-lg px-3 py-2 text-sm font-medium transition-colors ${
+                provider === "anthropic"
+                  ? "bg-primary-600 text-white"
+                  : "text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              Anthropic
+            </button>
+            <button
+              onClick={() => setProvider("openrouter")}
+              className={`flex-1 rounded-r-lg px-3 py-2 text-sm font-medium transition-colors ${
+                provider === "openrouter"
+                  ? "bg-primary-600 text-white"
+                  : "text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              OpenRouter
+            </button>
+          </div>
+
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-ant-..."
+            placeholder={provider === "openrouter" ? "sk-or-..." : "sk-ant-..."}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
           />
           <button
@@ -406,8 +433,8 @@ function AiSystemPromptCard({
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder={DEFAULT_SYSTEM_PROMPT}
-        rows={8}
-        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        rows={12}
+        className="max-h-96 w-full overflow-y-auto rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
       />
 
       <div className="mt-3 flex items-center gap-2">
